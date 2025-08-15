@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info } from 'lucide-react'
+import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User } from 'lucide-react'
 
 interface FormData {
   name: string
@@ -18,6 +18,15 @@ interface FormData {
   activities: string[]
   budget: string
   totalBudget: number
+  personalPreferences: {
+    travelStyle: string[]
+    interests: string[]
+    dietaryRestrictions: string[]
+    accessibility: string[]
+    pace: string
+    groupSize: string
+    specialRequirements: string
+  }
 }
 
 interface BudgetRecommendations {
@@ -43,6 +52,15 @@ export default function TripForm() {
     activities: [],
     budget: 'medium',
     totalBudget: 0,
+    personalPreferences: {
+      travelStyle: [],
+      interests: [],
+      dietaryRestrictions: [],
+      accessibility: [],
+      pace: '',
+      groupSize: '',
+      specialRequirements: ''
+    }
   })
   const [isLoading, setIsLoading] = useState(false)
   const [budgetRecommendations, setBudgetRecommendations] = useState<BudgetRecommendations | null>(null)
@@ -125,6 +143,42 @@ export default function TripForm() {
 
   const handleInputChange = (field: keyof FormData, value: string | string[] | number) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handlePreferenceChange = (field: keyof FormData['personalPreferences'], value: string, isChecked?: boolean) => {
+    setFormData(prev => {
+      const currentPrefs = prev.personalPreferences
+      
+      if (field === 'travelStyle' || field === 'interests' || field === 'dietaryRestrictions' || field === 'accessibility') {
+        // Handle array fields (checkboxes)
+        if (isChecked) {
+          return {
+            ...prev,
+            personalPreferences: {
+              ...currentPrefs,
+              [field]: [...currentPrefs[field], value]
+            }
+          }
+        } else {
+          return {
+            ...prev,
+            personalPreferences: {
+              ...currentPrefs,
+              [field]: currentPrefs[field].filter(item => item !== value)
+            }
+          }
+        }
+      } else {
+        // Handle string fields (selects and textarea)
+        return {
+          ...prev,
+          personalPreferences: {
+            ...currentPrefs,
+            [field]: value
+          }
+        }
+      }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -496,6 +550,132 @@ export default function TripForm() {
             <SelectItem value="luxury">Luxury ($300+/day)</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Personal Preferences Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <User className="w-5 h-5 text-primary" />
+          <Label className="text-lg font-semibold">Personal Preferences</Label>
+        </div>
+        
+        {/* Travel Style */}
+        <div className="space-y-2">
+          <Label>Travel Style</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Adventure', 'Relaxation', 'Cultural', 'Luxury', 'Budget-friendly', 'Family-friendly', 'Solo travel', 'Group travel', 'Business', 'Romantic'].map((style) => (
+              <label key={style} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.personalPreferences.travelStyle.includes(style)}
+                  onChange={(e) => handlePreferenceChange('travelStyle', style, e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">{style}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Interests */}
+        <div className="space-y-2">
+          <Label>Interests & Activities</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Museums', 'Nature', 'Shopping', 'Food & Dining', 'History', 'Art', 'Music', 'Sports', 'Photography', 'Nightlife', 'Wellness', 'Technology'].map((interest) => (
+              <label key={interest} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.personalPreferences.interests.includes(interest)}
+                  onChange={(e) => handlePreferenceChange('interests', interest, e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">{interest}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Dietary Restrictions */}
+        <div className="space-y-2">
+          <Label>Dietary Preferences</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-free', 'Dairy-free', 'Nut-free', 'Seafood-free', 'No restrictions'].map((diet) => (
+              <label key={diet} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.personalPreferences.dietaryRestrictions.includes(diet)}
+                  onChange={(e) => handlePreferenceChange('dietaryRestrictions', diet, e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">{diet}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Accessibility */}
+        <div className="space-y-2">
+          <Label>Accessibility Requirements</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Wheelchair accessible', 'Elevator access', 'Ramp access', 'Audio guides', 'Visual guides', 'Sign language', 'No special requirements'].map((access) => (
+              <label key={access} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.personalPreferences.accessibility.includes(access)}
+                  onChange={(e) => handlePreferenceChange('accessibility', access, e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">{access}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Travel Pace */}
+        <div className="space-y-2">
+          <Label>Preferred Travel Pace</Label>
+          <Select value={formData.personalPreferences.pace} onValueChange={(value) => handlePreferenceChange('pace', value, true)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select your preferred pace" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relaxed">Relaxed - Take it easy, lots of breaks</SelectItem>
+              <SelectItem value="moderate">Moderate - Balanced activity and rest</SelectItem>
+              <SelectItem value="active">Active - Packed schedule, maximize experiences</SelectItem>
+              <SelectItem value="intense">Intense - Non-stop adventure, minimal downtime</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Group Size */}
+        <div className="space-y-2">
+          <Label>Group Size</Label>
+          <Select value={formData.personalPreferences.groupSize} onValueChange={(value) => handlePreferenceChange('groupSize', value, true)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select group size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="solo">Solo Traveler</SelectItem>
+              <SelectItem value="couple">Couple (2 people)</SelectItem>
+              <SelectItem value="small-group">Small Group (3-5 people)</SelectItem>
+              <SelectItem value="large-group">Large Group (6+ people)</SelectItem>
+              <SelectItem value="family">Family with Children</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Special Requirements */}
+        <div className="space-y-2">
+          <Label htmlFor="specialRequirements">Special Requirements or Requests</Label>
+          <textarea
+            id="specialRequirements"
+            placeholder="Any special needs, allergies, or specific requests..."
+            value={formData.personalPreferences.specialRequirements}
+            onChange={(e) => handlePreferenceChange('specialRequirements', e.target.value, true)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+            rows={3}
+          />
+        </div>
       </div>
 
       {/* Submit Button */}

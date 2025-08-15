@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: Request) {
   try {
-    const { name, days, startDate, endDate, departureLocation, destination, accommodations, activities, budget, totalBudget } = await req.json();
+    const { name, days, startDate, endDate, departureLocation, destination, accommodations, activities, budget, totalBudget, personalPreferences } = await req.json();
 
     // 1. Try to get suggested activities from Google Gemini
     let itinerary;
@@ -57,6 +57,33 @@ export async function POST(req: Request) {
       USER PREFERENCES - MUST MATCH:
       - Accommodation: ${accommodations} (${accommodations === 'hotel' ? 'Standard hotels' : accommodations === 'hostel' ? 'Budget hostels' : accommodations === 'apartment' ? 'Self-catering apartments' : accommodations === 'resort' ? 'Full-service resorts' : accommodations === 'budget-hotel' ? 'Budget hotels' : accommodations === 'guesthouse' ? 'Guesthouses' : accommodations === 'bed-and-breakfast' ? 'Bed & Breakfasts' : accommodations === 'luxury-hotel' ? 'Luxury hotels' : accommodations === 'boutique-hotel' ? 'Boutique hotels' : accommodations === 'villa' ? 'Private villas' : 'Boutique accommodations'})
       - Activities: ${activities.join(', ')} - focus on these specific interests
+      
+      PERSONAL PREFERENCES - MUST INCORPORATE:
+      - Travel Style: ${personalPreferences?.travelStyle?.join(', ') || 'Not specified'} - tailor activities to match this style
+      - Interests: ${personalPreferences?.interests?.join(', ') || 'Not specified'} - prioritize these specific interests
+      - Dietary Restrictions: ${personalPreferences?.dietaryRestrictions?.join(', ') || 'No restrictions'} - ensure all food recommendations accommodate these
+      - Accessibility Requirements: ${personalPreferences?.accessibility?.join(', ') || 'No special requirements'} - ensure all locations are accessible
+      - Travel Pace: ${personalPreferences?.pace || 'Not specified'} - adjust activity density and timing accordingly
+      - Group Size: ${personalPreferences?.groupSize || 'Not specified'} - consider group dynamics and needs
+      - Special Requirements: ${personalPreferences?.specialRequirements || 'None'} - incorporate any specific needs or requests
+      
+      PERSONALIZATION GUIDELINES:
+      - If user prefers 'Adventure' style: Include outdoor activities, adrenaline experiences, exploration
+      - If user prefers 'Relaxation' style: Include spa activities, peaceful locations, leisurely pace
+      - If user prefers 'Cultural' style: Focus on museums, historical sites, local traditions, art
+      - If user prefers 'Luxury' style: Include premium experiences, exclusive access, high-end venues
+      - If user prefers 'Budget-friendly' style: Focus on free activities, affordable options, local deals
+      - If user prefers 'Family-friendly' style: Include child-appropriate activities, family restaurants, safe locations
+      - If user prefers 'Solo travel' style: Include social activities, safe solo-friendly locations, group tours
+      - If user prefers 'Business' style: Include professional venues, networking opportunities, convenient locations
+      - If user prefers 'Romantic' style: Include intimate settings, romantic restaurants, couple activities
+      
+      - If user has dietary restrictions: Research and suggest restaurants that specifically accommodate these needs
+      - If user has accessibility requirements: Ensure all suggested locations have proper accessibility features
+      - If user prefers 'relaxed' pace: Space out activities with breaks, include rest periods
+      - If user prefers 'intense' pace: Pack activities closely, minimize downtime, maximize experiences
+      - If user is traveling with family: Include child-friendly activities, family restaurants, safe locations
+      - If user is solo: Include social activities, safe solo-friendly locations, group tours where appropriate
       
       ACTIVITY RECOMMENDATIONS BY BUDGET:
       - If user selected 'food': ${budget === 'budget' ? 'Include budget-friendly restaurants, local food markets, street food' : budget === 'medium' ? 'Include mid-range restaurants, food markets, cooking classes, wine tastings' : 'Include fine dining restaurants, exclusive food experiences, wine tastings, chef\'s table'}
