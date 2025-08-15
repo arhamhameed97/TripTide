@@ -172,18 +172,18 @@ export async function POST(req: Request) {
        let attempts = 0;
        const maxAttempts = 1; // Only ask AI once to conserve quota
        
-       while (attempts < maxAttempts) {
-         try {
-           attempts++;
-           console.log(`AI generation attempt ${attempts}/${maxAttempts}`);
-           
-           const result = await model.generateContent(prompt);
-           const response = await result.response;
-           const content = response.text();
-           
-           console.log(`AI Response (attempt ${attempts}):`, content.substring(0, 500) + '...');
-           
-                       // Clean the response to ensure it's valid JSON
+               while (attempts < maxAttempts) {
+          try {
+            attempts++;
+            console.log(`AI generation attempt ${attempts}/${maxAttempts}`);
+            
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const content = response.text();
+            
+            console.log(`AI Response (attempt ${attempts}):`, content.substring(0, 500) + '...');
+            
+            // Clean the response to ensure it's valid JSON
             const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
             
             // Parse the response directly - no validation needed
@@ -209,70 +209,69 @@ export async function POST(req: Request) {
                 throw parseError; // Re-throw the original error
               }
             }
-           
-                              } catch (parseError) {
-             console.error(`Attempt ${attempts} failed:`, parseError);
-             
-             // Check if it's an API limit error
-             if (parseError instanceof Error) {
-               if (parseError.message.includes('quota') || parseError.message.includes('overloaded')) {
-                 console.error('API limit reached, cannot retry');
-                 throw new Error('API_LIMIT_REACHED');
-               }
-               
-               if (parseError.message.includes('503') || parseError.message.includes('Service Unavailable')) {
-                 console.error('AI service overloaded, cannot retry');
-                 throw new Error('SERVICE_OVERLOADED');
-               }
-             }
-             
-             if (attempts === maxAttempts) {
-               console.error('AI generation failed');
-               throw new Error('AI_GENERATION_FAILED');
-             }
-             // Continue to next attempt (though this won't happen with maxAttempts = 1)
-           }
-       }
-         } catch (aiError) {
-       console.error('AI service error:', aiError);
-       
-       // Check for specific API errors
-       if (aiError instanceof Error) {
-         if (aiError.message === 'API_LIMIT_REACHED') {
-           return NextResponse.json(
-             { error: 'AI service quota exceeded. Please try again tomorrow or upgrade your plan.' }, 
-             { status: 429 }
-           );
-         }
-         
-         if (aiError.message === 'SERVICE_OVERLOADED') {
-           return NextResponse.json(
-             { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
-             { status: 503 }
-           );
-         }
-         
-         if (aiError.message.includes('overloaded') || aiError.message.includes('503')) {
-           return NextResponse.json(
-             { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
-             { status: 503 }
-           );
-         }
-         
-         if (aiError.message.includes('quota')) {
-           return NextResponse.json(
-             { error: 'Daily AI request limit reached. Please try again tomorrow.' }, 
-             { status: 429 }
-           );
-         }
-       }
-       
-       // If AI fails for any other reason, return error - no fallback
-       return NextResponse.json(
-         { error: 'Unable to generate AI itinerary. Please try again later.' }, 
-         { status: 500 }
-       );
-     }
+          } catch (parseError) {
+            console.error(`Attempt ${attempts} failed:`, parseError);
+            
+            // Check if it's an API limit error
+            if (parseError instanceof Error) {
+              if (parseError.message.includes('quota') || parseError.message.includes('overloaded')) {
+                console.error('API limit reached, cannot retry');
+                throw new Error('API_LIMIT_REACHED');
+              }
+              
+              if (parseError.message.includes('503') || parseError.message.includes('Service Unavailable')) {
+                console.error('AI service overloaded, cannot retry');
+                throw new Error('SERVICE_OVERLOADED');
+              }
+            }
+            
+            if (attempts === maxAttempts) {
+              console.error('AI generation failed');
+              throw new Error('AI_GENERATION_FAILED');
+            }
+            // Continue to next attempt (though this won't happen with maxAttempts = 1)
+          }
+        }
+      } catch (aiError) {
+        console.error('AI service error:', aiError);
+        
+        // Check for specific API errors
+        if (aiError instanceof Error) {
+          if (aiError.message === 'API_LIMIT_REACHED') {
+            return NextResponse.json(
+              { error: 'AI service quota exceeded. Please try again tomorrow or upgrade your plan.' }, 
+              { status: 429 }
+            );
+          }
+          
+          if (aiError.message === 'SERVICE_OVERLOADED') {
+            return NextResponse.json(
+              { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
+              { status: 503 }
+            );
+          }
+          
+          if (aiError.message.includes('overloaded') || aiError.message.includes('503')) {
+            return NextResponse.json(
+              { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
+              { status: 503 }
+            );
+          }
+          
+          if (aiError.message.includes('quota')) {
+            return NextResponse.json(
+              { error: 'Daily AI request limit reached. Please try again tomorrow.' }, 
+              { status: 429 }
+            );
+          }
+        }
+        
+        // If AI fails for any other reason, return error - no fallback
+        return NextResponse.json(
+          { error: 'Unable to generate AI itinerary. Please try again later.' }, 
+          { status: 500 }
+        );
+      }
 
     // AI must succeed to continue - no fallback itinerary
     if (!aiSuccess || !itinerary) {
