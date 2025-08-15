@@ -267,7 +267,7 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => window.open(itinerary[0].hotel.link, '_blank')}
+                  onClick={() => itinerary[0]?.hotel?.link && window.open(itinerary[0].hotel.link, '_blank')}
                 >
                   View Details <ExternalLink className="w-3 h-3 ml-1" />
                 </Button>
@@ -298,7 +298,7 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => window.open(itinerary[0].flight.link, '_blank')}
+                  onClick={() => itinerary[0]?.flight?.link && window.open(itinerary[0].flight.link, '_blank')}
                 >
                   Book Flight <ExternalLink className="w-3 h-3 ml-1" />
                 </Button>
