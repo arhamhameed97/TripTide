@@ -97,14 +97,14 @@ export async function POST(req: Request) {
       - If user selected 'exclusive-tours': Include private tours, VIP access, behind-the-scenes experiences
       - If user selected 'spa-wellness': Include spa treatments, wellness activities, relaxation experiences
       
-             CRITICAL REQUIREMENT - SPECIFIC NAMES ONLY (MANDATORY):
-       ⚠️ NEVER use generic terms like "local restaurant", "famous landmark", "shopping district", "art museum", "popular area", "tourist spot"
-       ⚠️ NEVER use "local café", "fine restaurant", "luxury hotel", "main attraction", "cultural site", "famous place", "well-known", "popular destination", "must-see", "local eatery", "traditional restaurant", "authentic place", "hidden gem"
-       ⚠️ ALWAYS provide REAL, SPECIFIC names for every location and activity
-       ⚠️ Include FULL ADDRESSES for all locations
-       ⚠️ You MUST use actual business names, not descriptions
-       ⚠️ If you don't know a specific name, research and provide a real one
-       ⚠️ This is a STRICT requirement - generic responses will be rejected
+      CRITICAL REQUIREMENT - SPECIFIC NAMES ONLY (MANDATORY):
+      ⚠️ NEVER use generic terms like "local restaurant", "famous landmark", "shopping district", "art museum", "popular area", "tourist spot"
+      ⚠️ NEVER use "local café", "fine restaurant", "luxury hotel", "main attraction", "cultural site", "famous place", "well-known", "popular destination", "must-see", "local eatery", "traditional restaurant", "authentic place", "hidden gem"
+      ⚠️ ALWAYS provide REAL, SPECIFIC names for every location and activity
+      ⚠️ Include FULL ADDRESSES for all locations
+      ⚠️ You MUST use actual business names, not descriptions
+      ⚠️ If you don't know a specific name, research and provide a real one
+      ⚠️ This is a STRICT requirement - generic responses will be rejected
       
       REQUIRED FORMAT FOR EACH ACTIVITY:
       - Restaurants: "Restaurant Name, Full Street Address, City, Postal Code"
@@ -144,11 +144,11 @@ export async function POST(req: Request) {
 
       Also suggest the best transportation methods for getting around in ${destination} (metro, bus, walking, taxi, etc.).
 
-             FINAL REMINDER: Every single activity must have a REAL, SPECIFIC name and FULL address. No generic terms allowed.
-       
-       ⚠️ ULTIMATE WARNING: If you use ANY generic terms like "local restaurant", "famous landmark", "shopping district", "art museum", "popular area", "tourist spot", "local café", "fine restaurant", "luxury hotel", "main attraction", "cultural site", "famous place", "well-known", "popular destination", "must-see", "local eatery", "traditional restaurant", "authentic place", or "hidden gem", your response will be completely rejected and unusable.
-       
-       You MUST provide REAL business names, attraction names, and full addresses for EVERY single activity. This is non-negotiable.
+      FINAL REMINDER: Every single activity must have a REAL, SPECIFIC name and FULL address. No generic terms allowed.
+      
+      ⚠️ ULTIMATE WARNING: If you use ANY generic terms like "local restaurant", "famous landmark", "shopping district", "art museum", "popular area", "tourist spot", "local café", "fine restaurant", "luxury hotel", "main attraction", "cultural site", "famous place", "well-known", "popular destination", "must-see", "local eatery", "traditional restaurant", "authentic place", or "hidden gem", your response will be completely rejected and unusable.
+      
+      You MUST provide REAL business names, attraction names, and full addresses for EVERY single activity. This is non-negotiable.
 
       Return ONLY a valid JSON array where each item has: day, hourlyActivities (array of objects with hour, activity, location, estimatedCost), transportSuggestion.
       Example format:
@@ -169,109 +169,109 @@ export async function POST(req: Request) {
         }
       ]`;
 
-       let attempts = 0;
-       const maxAttempts = 1; // Only ask AI once to conserve quota
-       
-               while (attempts < maxAttempts) {
+      let attempts = 0;
+      const maxAttempts = 1; // Only ask AI once to conserve quota
+      
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`AI generation attempt ${attempts}/${maxAttempts}`);
+          
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          const content = response.text();
+          
+          console.log(`AI Response (attempt ${attempts}):`, content.substring(0, 500) + '...');
+          
+          // Clean the response to ensure it's valid JSON
+          const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+          
+          // Parse the response directly - no validation needed
           try {
-            attempts++;
-            console.log(`AI generation attempt ${attempts}/${maxAttempts}`);
-            
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const content = response.text();
-            
-            console.log(`AI Response (attempt ${attempts}):`, content.substring(0, 500) + '...');
-            
-            // Clean the response to ensure it's valid JSON
-            const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-            
-            // Parse the response directly - no validation needed
-            try {
-              itinerary = JSON.parse(cleanedContent);
-              console.log(`Success on attempt ${attempts}`);
-              aiSuccess = true;
-              break;
-            } catch (parseError) {
-              console.error('JSON parsing failed, trying to clean the response');
-              try {
-                // Try to extract JSON from the response more aggressively
-                const jsonMatch = content.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                  const cleanedJson = jsonMatch[0].replace(/[^\x20-\x7E]/g, ''); // Remove non-printable characters
-                  itinerary = JSON.parse(cleanedJson);
-                  console.log(`Successfully parsed JSON after cleaning`);
-                  aiSuccess = true;
-                  break;
-                }
-              } catch (cleanError) {
-                console.error('Failed to clean and parse JSON:', cleanError);
-                throw parseError; // Re-throw the original error
-              }
-            }
+            itinerary = JSON.parse(cleanedContent);
+            console.log(`Success on attempt ${attempts}`);
+            aiSuccess = true;
+            break;
           } catch (parseError) {
-            console.error(`Attempt ${attempts} failed:`, parseError);
-            
-            // Check if it's an API limit error
-            if (parseError instanceof Error) {
-              if (parseError.message.includes('quota') || parseError.message.includes('overloaded')) {
-                console.error('API limit reached, cannot retry');
-                throw new Error('API_LIMIT_REACHED');
+            console.error('JSON parsing failed, trying to clean the response');
+            try {
+              // Try to extract JSON from the response more aggressively
+              const jsonMatch = content.match(/\[[\s\S]*\]/);
+              if (jsonMatch) {
+                const cleanedJson = jsonMatch[0].replace(/[^\x20-\x7E]/g, ''); // Remove non-printable characters
+                itinerary = JSON.parse(cleanedJson);
+                console.log(`Successfully parsed JSON after cleaning`);
+                aiSuccess = true;
+                break;
               }
-              
-              if (parseError.message.includes('503') || parseError.message.includes('Service Unavailable')) {
-                console.error('AI service overloaded, cannot retry');
-                throw new Error('SERVICE_OVERLOADED');
-              }
+            } catch (cleanError) {
+              console.error('Failed to clean and parse JSON:', cleanError);
+              throw parseError; // Re-throw the original error
+            }
+          }
+        } catch (parseError) {
+          console.error(`Attempt ${attempts} failed:`, parseError);
+          
+          // Check if it's an API limit error
+          if (parseError instanceof Error) {
+            if (parseError.message.includes('quota') || parseError.message.includes('overloaded')) {
+              console.error('API limit reached, cannot retry');
+              throw new Error('API_LIMIT_REACHED');
             }
             
-            if (attempts === maxAttempts) {
-              console.error('AI generation failed');
-              throw new Error('AI_GENERATION_FAILED');
+            if (parseError.message.includes('503') || parseError.message.includes('Service Unavailable')) {
+              console.error('AI service overloaded, cannot retry');
+              throw new Error('SERVICE_OVERLOADED');
             }
-            // Continue to next attempt (though this won't happen with maxAttempts = 1)
           }
+          
+          if (attempts === maxAttempts) {
+            console.error('AI generation failed');
+            throw new Error('AI_GENERATION_FAILED');
+          }
+          // Continue to next attempt (though this won't happen with maxAttempts = 1)
         }
-      } catch (aiError) {
-        console.error('AI service error:', aiError);
-        
-        // Check for specific API errors
-        if (aiError instanceof Error) {
-          if (aiError.message === 'API_LIMIT_REACHED') {
-            return NextResponse.json(
-              { error: 'AI service quota exceeded. Please try again tomorrow or upgrade your plan.' }, 
-              { status: 429 }
-            );
-          }
-          
-          if (aiError.message === 'SERVICE_OVERLOADED') {
-            return NextResponse.json(
-              { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
-              { status: 503 }
-            );
-          }
-          
-          if (aiError.message.includes('overloaded') || aiError.message.includes('503')) {
-            return NextResponse.json(
-              { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
-              { status: 503 }
-            );
-          }
-          
-          if (aiError.message.includes('quota')) {
-            return NextResponse.json(
-              { error: 'Daily AI request limit reached. Please try again tomorrow.' }, 
-              { status: 429 }
-            );
-          }
-        }
-        
-        // If AI fails for any other reason, return error - no fallback
-        return NextResponse.json(
-          { error: 'Unable to generate AI itinerary. Please try again later.' }, 
-          { status: 500 }
-        );
       }
+    } catch (aiError) {
+      console.error('AI service error:', aiError);
+      
+      // Check for specific API errors
+      if (aiError instanceof Error) {
+        if (aiError.message === 'API_LIMIT_REACHED') {
+          return NextResponse.json(
+            { error: 'AI service quota exceeded. Please try again tomorrow or upgrade your plan.' }, 
+            { status: 429 }
+          );
+        }
+        
+        if (aiError.message === 'SERVICE_OVERLOADED') {
+          return NextResponse.json(
+            { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
+            { status: 503 }
+          );
+        }
+        
+        if (aiError.message.includes('overloaded') || aiError.message.includes('503')) {
+          return NextResponse.json(
+            { error: 'AI service is temporarily busy. Please wait a few minutes and try again.' }, 
+            { status: 503 }
+          );
+        }
+        
+        if (aiError.message.includes('quota')) {
+          return NextResponse.json(
+            { error: 'Daily AI request limit reached. Please try again tomorrow.' }, 
+            { status: 429 }
+          );
+        }
+      }
+      
+      // If AI fails for any other reason, return error - no fallback
+      return NextResponse.json(
+        { error: 'Unable to generate AI itinerary. Please try again later.' }, 
+        { status: 500 }
+      );
+    }
 
     // AI must succeed to continue - no fallback itinerary
     if (!aiSuccess || !itinerary) {
