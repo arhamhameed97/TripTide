@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // - Kayak API
     // - Expedia API
 
-    const flights = await fetchRealFlightData(origin, destination, departureDate, returnDate || undefined, passengers, cabinClass, budget)
+    const flights = await fetchRealFlightData(origin, destination, departureDate, passengers, cabinClass, budget, returnDate || undefined)
 
     return NextResponse.json({
       success: true,
@@ -96,10 +96,10 @@ async function fetchRealFlightData(
   origin: string,
   destination: string,
   departureDate: string,
-  returnDate?: string,
   passengers: number,
   cabinClass: string,
-  budget: number
+  budget: number,
+  returnDate?: string
 ): Promise<FlightBooking[]> {
   // Enhanced mock data that simulates real flight API responses
   // In production, replace this with actual API calls
