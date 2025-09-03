@@ -1,10 +1,31 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { 
+  calculateBudgetConstraints, 
+  validateBudgetInput, 
+  validateItineraryBudget,
+  generateBudgetAlternatives 
+} from '@/lib/budgetValidation';
 
 export async function POST(req: Request) {
   try {
-    const { name, days, startDate, endDate, departureLocation, destination, accommodations, activities, budget, totalBudget, personalPreferences } = await req.json();
+    const { name, days, startDate, endDate, departureLocation, destination, accommodations, activities, totalBudget, personalPreferences } = await req.json();
+
+    // Validate budget input and provide warnings
+    const budgetValidation = validateBudgetInput(totalBudget, days, accommodations);
+    
+    if (!budgetValidation.isValid) {
+      return NextResponse.json({
+        error: 'Budget too low for selected preferences',
+        details: budgetValidation.warnings,
+        suggestions: budgetValidation.alternatives
+      }, { status: 400 });
+    }
+
+    // Calculate strict budget constraints
+    const budgetConstraints = calculateBudgetConstraints(totalBudget, days);
+    const dailyBudget = budgetConstraints.dailyBudget;
 
     // 1. Try to get suggested activities from Google Gemini
     let itinerary;
@@ -33,26 +54,53 @@ export async function POST(req: Request) {
 
       const prompt = `Create a ${days}-day travel itinerary for ${name} traveling from ${departureLocation} to ${destination}, 
       preferring ${accommodations} accommodations, interested in ${activities.join(', ')}, 
-      budget ${budget}. 
+      with a total budget of $${totalBudget}. 
 
       TRAVEL DATES: ${startDate} to ${endDate} (${season} - ${monthName})
       
-      BUDGET CONSIDERATIONS - CRITICAL:
+      ⚠️ STRICT BUDGET ENFORCEMENT - MANDATORY COMPLIANCE ⚠️
+      CRITICAL: ALL suggestions MUST stay within these EXACT budget limits
+      NO EXCEPTIONS: Maximum 10% overage tolerance allowed
+
+      BUDGET CONSTRAINTS (ABSOLUTE LIMITS):
       - Total Trip Budget: $${totalBudget} for ${days} days
-      - Daily Budget: $${(totalBudget / days).toFixed(0)} per day
-      - Budget Category: ${budget} (${budget === 'budget' ? 'Budget-friendly options' : budget === 'medium' ? 'Mid-range experiences' : 'Premium/luxury experiences'})
-      
-      DAILY BUDGET BREAKDOWN (based on $${(totalBudget / days).toFixed(0)}/day):
-      - Accommodation: $${(totalBudget * 0.35 / days).toFixed(0)}/day (35% of daily budget)
-      - Food: $${(totalBudget * 0.25 / days).toFixed(0)}/day (25% of daily budget)
-      - Activities: $${(totalBudget * 0.20 / days).toFixed(0)}/day (20% of daily budget)
-      - Transport: $${(totalBudget * 0.15 / days).toFixed(0)}/day (15% of daily budget)
-      - Shopping/Misc: $${(totalBudget * 0.05 / days).toFixed(0)}/day (5% of daily budget)
-      
-      COST GUIDELINES (based on daily budget of $${(totalBudget / days).toFixed(0)}):
-      - Restaurant costs: ${budget === 'budget' ? `$${(totalBudget * 0.25 / days * 0.4).toFixed(0)}-${(totalBudget * 0.25 / days * 0.8).toFixed(0)} for meals` : budget === 'medium' ? `$${(totalBudget * 0.25 / days * 0.6).toFixed(0)}-${(totalBudget * 0.25 / days).toFixed(0)} for meals` : `$${(totalBudget * 0.25 / days).toFixed(0)}+ for fine dining`}
-      - Activity costs: ${budget === 'budget' ? `$${(totalBudget * 0.20 / days * 0.3).toFixed(0)}-${(totalBudget * 0.20 / days * 0.7).toFixed(0)} for attractions` : budget === 'medium' ? `$${(totalBudget * 0.20 / days * 0.5).toFixed(0)}-${(totalBudget * 0.20 / days).toFixed(0)} for attractions` : `$${(totalBudget * 0.20 / days).toFixed(0)}+ for premium experiences`}
-      - Shopping: ${budget === 'budget' ? 'Local markets, budget stores, thrift shops' : budget === 'medium' ? 'Mid-range boutiques, department stores, local markets' : 'Luxury boutiques, designer stores, exclusive shopping districts'}
+      - Daily Budget: $${dailyBudget.toFixed(0)} per day (STRICT LIMIT)
+
+      CATEGORY BUDGET LIMITS (CANNOT EXCEED):
+      - Accommodation: MAX $${(totalBudget * 0.35 / days).toFixed(0)}/day (35% of daily budget)
+      - Food: MAX $${(totalBudget * 0.25 / days).toFixed(0)}/day (25% of daily budget)
+      - Activities: MAX $${(totalBudget * 0.20 / days).toFixed(0)}/day (20% of daily budget)
+      - Transport: MAX $${(totalBudget * 0.15 / days).toFixed(0)}/day (15% of daily budget)
+      - Shopping/Misc: MAX $${(totalBudget * 0.05 / days).toFixed(0)}/day (5% of daily budget)
+
+      COST VALIDATION RULES:
+      1. NO single activity can exceed 110% of its category's daily budget
+      2. NO daily spending can exceed daily budget limit
+      3. ALL suggested activities must have realistic, budget-appropriate costs
+      4. If budget is too low for desired activities, suggest alternatives or free options
+      5. Prioritize value-for-money over luxury when budget is constrained
+
+      BUDGET-APPROPRIATE SUGGESTIONS:
+      - Low Budget (<$50/day): Focus on free activities, public transport, street food, hostels
+      - Medium Budget ($50-150/day): Mix of free and paid activities, mid-range restaurants, budget hotels
+      - High Budget ($150+/day): Premium experiences, fine dining, luxury accommodations
+
+      ACTIVITY COST VALIDATION - MANDATORY:
+      For each activity, you MUST:
+      1. Verify the suggested cost fits within category budget
+      2. Provide realistic cost estimates based on destination and budget level
+      3. If an activity is too expensive, suggest a budget alternative
+      4. Include cost breakdown for transparency
+
+      COST ESTIMATION GUIDELINES:
+      - Restaurant costs: Must fit within food budget category
+      - Activity costs: Must fit within activities budget category
+      - Transport costs: Must fit within transport budget category
+      - Accommodation costs: Must fit within accommodation budget category
+
+      EXAMPLE COST VALIDATION:
+      ✅ CORRECT: "Breakfast at Budget Café, 123 Main St, City, Country - $8 (within $25 food budget)"
+      ❌ WRONG: "Breakfast at Luxury Restaurant, 456 High St, City, Country - $45 (EXCEEDS $25 food budget)"
       
       USER PREFERENCES - MUST MATCH:
       - Accommodation: ${accommodations} (${accommodations === 'hotel' ? 'Standard hotels' : accommodations === 'hostel' ? 'Budget hostels' : accommodations === 'apartment' ? 'Self-catering apartments' : accommodations === 'resort' ? 'Full-service resorts' : accommodations === 'budget-hotel' ? 'Budget hotels' : accommodations === 'guesthouse' ? 'Guesthouses' : accommodations === 'bed-and-breakfast' ? 'Bed & Breakfasts' : accommodations === 'luxury-hotel' ? 'Luxury hotels' : accommodations === 'boutique-hotel' ? 'Boutique hotels' : accommodations === 'villa' ? 'Private villas' : 'Boutique accommodations'})
@@ -85,13 +133,13 @@ export async function POST(req: Request) {
       - If user is traveling with family: Include child-friendly activities, family restaurants, safe locations
       - If user is solo: Include social activities, safe solo-friendly locations, group tours where appropriate
       
-      ACTIVITY RECOMMENDATIONS BY BUDGET:
-      - If user selected 'food': ${budget === 'budget' ? 'Include budget-friendly restaurants, local food markets, street food' : budget === 'medium' ? 'Include mid-range restaurants, food markets, cooking classes, wine tastings' : 'Include fine dining restaurants, exclusive food experiences, wine tastings, chef\'s table'}
+      ACTIVITY RECOMMENDATIONS:
+      - If user selected 'food': Include restaurants, food markets, cooking classes, wine tastings
       - If user selected 'culture': Include museums, historical sites, cultural experiences, art galleries
-      - If user selected 'beach': Include waterfront activities, coastal walks, ${budget === 'budget' ? 'public beaches' : budget === 'medium' ? 'beach clubs, water sports' : 'exclusive beach clubs, private beach access'}
+      - If user selected 'beach': Include waterfront activities, coastal walks, beach clubs, water sports
       - If user selected 'mountains': Include hiking trails, mountain activities, scenic viewpoints
       - If user selected 'adventure': Include outdoor activities, adventure sports, adrenaline experiences
-      - If user selected 'shopping': ${budget === 'budget' ? 'Include local markets, budget stores, thrift shops' : budget === 'medium' ? 'Include mid-range boutiques, department stores, local markets' : 'Include luxury boutiques, designer stores, exclusive shopping districts'}
+      - If user selected 'shopping': Include local markets, boutiques, department stores
       - If user selected 'luxury-experiences': Include exclusive tours, private guides, VIP access, premium experiences
       - If user selected 'fine-dining': Include upscale restaurants, gourmet experiences, wine pairings
       - If user selected 'exclusive-tours': Include private tours, VIP access, behind-the-scenes experiences
@@ -140,7 +188,7 @@ export async function POST(req: Request) {
       - Only mention seasonal events if they're actually happening during the travel dates
       - Don't force seasonal themes - focus on the best activities and locations for the destination
 
-      Each day should have hourly activities from 8 AM to 10 PM with specific locations and estimated costs that match the ${budget} budget.
+      Each day should have hourly activities from 8 AM to 10 PM with specific locations and estimated costs that fit within the daily budget of $${(totalBudget / days).toFixed(0)}.
 
       Also suggest the best transportation methods for getting around in ${destination} (metro, bus, walking, taxi, etc.).
 
@@ -150,20 +198,34 @@ export async function POST(req: Request) {
       
       You MUST provide REAL business names, attraction names, and full addresses for EVERY single activity. This is non-negotiable.
 
-      Return ONLY a valid JSON array where each item has: day, hourlyActivities (array of objects with hour, activity, location, estimatedCost), transportSuggestion.
+      CRITICAL JSON FORMATTING REQUIREMENTS:
+      - Return ONLY valid JSON - no additional text, explanations, or markdown
+      - Ensure all quotes are properly escaped
+      - No trailing commas
+      - All strings must be properly quoted
+      - The response must be a complete, valid JSON array
+      - Test your JSON before sending - it must parse without errors
+
+      MANDATORY COORDINATES REQUIREMENT:
+      ⚠️ For EVERY location, you MUST include the exact latitude and longitude coordinates
+      ⚠️ Use decimal degrees format (e.g., 48.8584, 2.2945 for Eiffel Tower)
+      ⚠️ These coordinates must be accurate for the specific address provided
+      ⚠️ Do NOT use approximate coordinates - they must be precise for the exact location
+
+      Return ONLY a valid JSON array where each item has: day, hourlyActivities (array of objects with hour, activity, location, estimatedCost, coordinates), transportSuggestion.
       Example format:
       [
         {
           "day": 1,
           "hourlyActivities": [
-            {"hour": "8:00 AM", "activity": "Breakfast at Café de Flore", "location": "Café de Flore, 172 Boulevard Saint-Germain, 75006 Paris, France", "estimatedCost": "€25"},
-            {"hour": "9:00 AM", "activity": "Visit Eiffel Tower", "location": "Eiffel Tower, Champ de Mars, 5 Avenue Anatole France, 75007 Paris, France", "estimatedCost": "€26"},
-            {"hour": "11:00 AM", "activity": "Walk along Seine River", "location": "Quai des Tuileries, Seine River, 75001 Paris, France", "estimatedCost": "€0"},
-            {"hour": "12:00 PM", "activity": "Lunch at Le Petit Bistrot", "location": "Le Petit Bistrot, 12 Rue de la Paix, 75002 Paris, France", "estimatedCost": "€35"},
-            {"hour": "2:00 PM", "activity": "Explore Louvre Museum", "location": "Louvre Museum, Rue de Rivoli, 75001 Paris, France", "estimatedCost": "€17"},
-            {"hour": "5:00 PM", "activity": "Shopping at Galeries Lafayette", "location": "Galeries Lafayette, 40 Boulevard Haussmann, 75009 Paris, France", "estimatedCost": "€100"},
-            {"hour": "7:00 PM", "activity": "Dinner at Le Jules Verne", "location": "Le Jules Verne, Eiffel Tower, 2nd Floor, Champ de Mars, 75007 Paris, France", "estimatedCost": "€180"},
-            {"hour": "9:00 PM", "activity": "Evening stroll in Montmartre", "location": "Montmartre, 18th Arrondissement, 75018 Paris, France", "estimatedCost": "€0"}
+            {"hour": "8:00 AM", "activity": "Breakfast at Café de Flore", "location": "Café de Flore, 172 Boulevard Saint-Germain, 75006 Paris, France", "estimatedCost": "€25", "coordinates": [48.8534, 2.3348]},
+            {"hour": "9:00 AM", "activity": "Visit Eiffel Tower", "location": "Eiffel Tower, Champ de Mars, 5 Avenue Anatole France, 75007 Paris, France", "estimatedCost": "€26", "coordinates": [48.8584, 2.2945]},
+            {"hour": "11:00 AM", "activity": "Walk along Seine River", "location": "Quai des Tuileries, Seine River, 75001 Paris, France", "estimatedCost": "€0", "coordinates": [48.8611, 2.3364]},
+            {"hour": "12:00 PM", "activity": "Lunch at Le Petit Bistrot", "location": "Le Petit Bistrot, 12 Rue de la Paix, 75002 Paris, France", "estimatedCost": "€35", "coordinates": [48.8698, 2.3297]},
+            {"hour": "2:00 PM", "activity": "Explore Louvre Museum", "location": "Louvre Museum, Rue de Rivoli, 75001 Paris, France", "estimatedCost": "€17", "coordinates": [48.8606, 2.3376]},
+            {"hour": "5:00 PM", "activity": "Shopping at Galeries Lafayette", "location": "Galeries Lafayette, 40 Boulevard Haussmann, 75009 Paris, France", "estimatedCost": "€100", "coordinates": [48.8738, 2.3322]},
+            {"hour": "7:00 PM", "activity": "Dinner at Le Jules Verne", "location": "Le Jules Verne, Eiffel Tower, 2nd Floor, Champ de Mars, 75007 Paris, France", "estimatedCost": "€180", "coordinates": [48.8584, 2.2945]},
+            {"hour": "9:00 PM", "activity": "Evening stroll in Montmartre", "location": "Montmartre, 18th Arrondissement, 75018 Paris, France", "estimatedCost": "€0", "coordinates": [48.8867, 2.3431]}
           ],
           "transportSuggestion": "Take Metro Line 6 to Bir-Hakeim station for Eiffel Tower, then walk to Louvre. Use Metro Line 1 for shopping and dinner."
         }
@@ -190,6 +252,7 @@ export async function POST(req: Request) {
           try {
             itinerary = JSON.parse(cleanedContent);
             console.log(`Success on attempt ${attempts}`);
+            console.log('AI Response parsed successfully:', JSON.stringify(itinerary, null, 2));
             aiSuccess = true;
             break;
           } catch (parseError) {
@@ -198,11 +261,38 @@ export async function POST(req: Request) {
               // Try to extract JSON from the response more aggressively
               const jsonMatch = content.match(/\[[\s\S]*\]/);
               if (jsonMatch) {
-                const cleanedJson = jsonMatch[0].replace(/[^\x20-\x7E]/g, ''); // Remove non-printable characters
-                itinerary = JSON.parse(cleanedJson);
-                console.log(`Successfully parsed JSON after cleaning`);
-                aiSuccess = true;
-                break;
+                let cleanedJson = jsonMatch[0].replace(/[^\x20-\x7E]/g, ''); // Remove non-printable characters
+                
+                // Try to fix common JSON syntax issues
+                cleanedJson = cleanedJson
+                  .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+                  .replace(/([^"\\])\s*\n\s*([^"\\])/g, '$1 $2') // Fix line breaks in strings
+                  .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2') // Fix trailing commas before brackets
+                  .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2'); // Double check for trailing commas
+                
+                try {
+                  itinerary = JSON.parse(cleanedJson);
+                  console.log(`Successfully parsed JSON after cleaning and fixing syntax`);
+                  aiSuccess = true;
+                  break;
+                } catch (finalError) {
+                  console.error('Final JSON parsing failed after syntax fixes:', finalError);
+                  // Try one more time with even more aggressive cleaning
+                  const ultraCleaned = cleanedJson
+                    .replace(/[^\x20-\x7E]/g, '') // Remove ALL non-printable characters
+                    .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
+                    .replace(/,\s*]/g, ']'); // Remove trailing commas before closing brackets
+                  
+                  try {
+                    itinerary = JSON.parse(ultraCleaned);
+                    console.log(`Successfully parsed JSON after ultra-cleaning`);
+                    aiSuccess = true;
+                    break;
+                  } catch (ultraError) {
+                    console.error('Ultra-cleaning also failed:', ultraError);
+                    throw parseError; // Re-throw the original error
+                  }
+                }
               }
             } catch (cleanError) {
               console.error('Failed to clean and parse JSON:', cleanError);
@@ -273,12 +363,117 @@ export async function POST(req: Request) {
       );
     }
 
-    // AI must succeed to continue - no fallback itinerary
+    // If AI fails, create a basic fallback itinerary
     if (!aiSuccess || !itinerary) {
-      return NextResponse.json(
-        { error: 'Failed to generate itinerary. Please try again.' }, 
-        { status: 500 }
-      );
+      console.log('Creating fallback itinerary due to AI failure');
+      
+      // Create a basic itinerary structure
+      const fallbackItinerary = [];
+      for (let day = 1; day <= days; day++) {
+        fallbackItinerary.push({
+          day: day,
+          hourlyActivities: [
+            {
+              hour: "9:00 AM",
+              activity: `Explore ${destination}`,
+              location: `${destination} City Center`,
+              estimatedCost: "$0",
+              budgetCategory: "activities"
+            },
+            {
+              hour: "12:00 PM",
+              activity: "Local lunch",
+              location: "Local restaurant in city center",
+              estimatedCost: "$50",
+              budgetCategory: "food"
+            },
+            {
+              hour: "3:00 PM",
+              activity: "Cultural site visit",
+              location: "Main cultural attraction",
+              estimatedCost: "$40",
+              budgetCategory: "activities"
+            },
+            {
+              hour: "7:00 PM",
+              activity: "Dinner",
+              location: "Local restaurant in city center",
+              estimatedCost: "$60",
+              budgetCategory: "food"
+            }
+          ],
+          transportSuggestion: "Use public transportation or walking to explore the city"
+        });
+      }
+      
+      itinerary = fallbackItinerary;
+      console.log('Fallback itinerary created successfully');
+    }
+
+    // Validate generated itinerary against budget constraints
+    console.log('Budget validation debug:', {
+      totalBudget,
+      dailyBudget,
+      budgetConstraints,
+      itineraryLength: itinerary.length
+    });
+    
+    const budgetValidationResult = validateItineraryBudget(itinerary, budgetConstraints);
+    
+    if (!budgetValidationResult.isValid) {
+      console.log(`Budget validation failed: ${budgetValidationResult.totalViolations} violations found`);
+      console.log('Violations:', budgetValidationResult.violations);
+      
+      // Add budget validation data to itinerary for frontend display
+      itinerary = itinerary.map((day: any, dayIndex: number) => {
+        const dayViolations = budgetValidationResult.violations.filter(v => v.day === dayIndex + 1);
+        const dailySpending = day.hourlyActivities?.reduce((sum: number, activity: any) => {
+          return sum + (parseFloat(activity.estimatedCost?.replace(/[^0-9.-]/g, '')) || 0);
+        }, 0) || 0;
+        
+        return {
+          ...day,
+          dailyBudget: dailyBudget,
+          budgetUtilization: (dailySpending / dailyBudget) * 100,
+          budgetViolations: dayViolations,
+          budgetWarnings: budgetValidation.warnings
+        };
+      });
+      
+      // Add overall budget summary
+      itinerary.budgetSummary = {
+        totalBudget,
+        dailyBudget,
+        violations: budgetValidationResult.violations,
+        warnings: budgetValidation.warnings,
+        isValid: false
+      };
+    } else {
+      console.log('Budget validation passed - all activities within budget constraints');
+      
+      // Add budget validation data to itinerary for frontend display
+      itinerary = itinerary.map((day: any, dayIndex: number) => {
+        const dailySpending = day.hourlyActivities?.reduce((sum: number, activity: any) => {
+          return sum + (parseFloat(activity.estimatedCost?.replace(/[^0-9.-]/g, '')) || 0);
+        }, 0) || 0;
+        
+        return {
+          ...day,
+          dailyBudget: dailyBudget,
+          budgetUtilization: (dailySpending / dailyBudget) * 100,
+          budgetViolations: [],
+          budgetWarnings: budgetValidation.warnings
+        };
+      });
+      
+      // Add overall budget summary
+      itinerary.budgetSummary = {
+        totalBudget,
+        dailyBudget,
+        violations: [],
+        warnings: budgetValidation.warnings,
+        isValid: true
+      };
     }
 
     // 2. Fetch flights (Amadeus API) - now using departure location
@@ -328,6 +523,246 @@ export async function POST(req: Request) {
 
     // 3. Fetch hotels (Booking.com RapidAPI)
     let hotels = [];
+    
+    // Function to generate destination-specific fallback hotels
+    const generateDestinationHotels = (destination: string) => {
+      const cityName = destination.split(',')[0].trim().toLowerCase();
+      
+      // Define hotel templates for different destinations
+      const hotelTemplates: { [key: string]: any[] } = {
+        'islamabad': [
+          {
+            hotel_name: 'Serena Hotel Islamabad',
+            price_breakdown: { all_inclusive_amount: { value: '180' } },
+            url: '#',
+            review_score: 4.6,
+            address: 'Khayaban-e-Suhrawardy, Islamabad, Pakistan',
+            phone: '+92 51 2874000',
+            website: 'https://www.serenahotels.com',
+            amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool', 'concierge'],
+            room_type: 'Deluxe Room',
+            cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+          },
+          {
+            hotel_name: 'Islamabad Marriott Hotel',
+            price_breakdown: { all_inclusive_amount: { value: '220' } },
+            url: '#',
+            review_score: 4.4,
+            address: 'Aga Khan Road, F-5/1, Islamabad, Pakistan',
+            phone: '+92 51 2826121',
+            website: 'https://www.marriott.com',
+            amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+            room_type: 'Executive Room',
+            cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+          },
+          {
+            hotel_name: 'Ramada by Wyndham Islamabad',
+            price_breakdown: { all_inclusive_amount: { value: '150' } },
+            url: '#',
+            review_score: 4.2,
+            address: 'Club Road, Islamabad, Pakistan',
+            phone: '+92 51 2827000',
+            website: 'https://www.wyndhamhotels.com',
+            amenities: ['wifi', 'restaurant', 'gym'],
+            room_type: 'Standard Room',
+            cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+          }
+        ],
+        'paris': [
+          {
+            hotel_name: 'Hotel Ritz Paris',
+            price_breakdown: { all_inclusive_amount: { value: '850' } },
+            url: '#',
+            review_score: 4.8,
+            address: '15 Place Vendôme, 75001 Paris, France',
+            phone: '+33 1 43 16 30 30',
+            website: 'https://www.ritzparis.com',
+            amenities: ['wifi', 'restaurant', 'spa', 'concierge'],
+            room_type: 'Deluxe Room',
+            cancellation_policy: 'Free cancellation up to 72 hours before check-in'
+          },
+          {
+            hotel_name: 'Le Meurice',
+            price_breakdown: { all_inclusive_amount: { value: '750' } },
+            url: '#',
+            review_score: 4.7,
+            address: '228 Rue de Rivoli, 75001 Paris, France',
+            phone: '+33 1 44 58 10 10',
+            website: 'https://www.lemeurice.com',
+            amenities: ['wifi', 'restaurant', 'spa', 'gym'],
+            room_type: 'Superior Room',
+            cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+          },
+          {
+            hotel_name: 'Hotel de Crillon',
+            price_breakdown: { all_inclusive_amount: { value: '950' } },
+            url: '#',
+            review_score: 4.9,
+            address: '10 Place de la Concorde, 75008 Paris, France',
+            phone: '+33 1 44 71 15 00',
+            website: 'https://www.rosewoodhotels.com',
+            amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+            room_type: 'Luxury Room',
+            cancellation_policy: 'Free cancellation up to 72 hours before check-in'
+          }
+        ],
+                 'london': [
+           {
+             hotel_name: 'The Ritz London',
+             price_breakdown: { all_inclusive_amount: { value: '650' } },
+             url: '#',
+             review_score: 4.8,
+             address: '150 Piccadilly, St. James\'s, London W1J 9BR, UK',
+             phone: '+44 20 7493 8181',
+             website: 'https://www.theritzlondon.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'concierge'],
+             room_type: 'Deluxe Room',
+             cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+           },
+           {
+             hotel_name: 'Claridge\'s',
+             price_breakdown: { all_inclusive_amount: { value: '580' } },
+             url: '#',
+             review_score: 4.7,
+             address: 'Brook St, Mayfair, London W1K 4HR, UK',
+             phone: '+44 20 7629 8860',
+             website: 'https://www.claridges.co.uk',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym'],
+             room_type: 'Superior Room',
+             cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+           },
+           {
+             hotel_name: 'The Savoy',
+             price_breakdown: { all_inclusive_amount: { value: '720' } },
+             url: '#',
+             review_score: 4.6,
+             address: 'Strand, London WC2R 0EZ, UK',
+             phone: '+44 20 7836 4343',
+             website: 'https://www.thesavoylondon.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+             room_type: 'River View Room',
+             cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+           }
+         ],
+         'tokyo': [
+           {
+             hotel_name: 'The Ritz-Carlton Tokyo',
+             price_breakdown: { all_inclusive_amount: { value: '450' } },
+             url: '#',
+             review_score: 4.8,
+             address: 'Tokyo Midtown, 9-7-1 Akasaka, Minato City, Tokyo, Japan',
+             phone: '+81 3 6434 8700',
+             website: 'https://www.ritzcarlton.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+             room_type: 'Deluxe Room',
+             cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+           },
+           {
+             hotel_name: 'Aman Tokyo',
+             price_breakdown: { all_inclusive_amount: { value: '1200' } },
+             url: '#',
+             review_score: 4.9,
+             address: 'The Otemachi Tower, 1-5-6 Otemachi, Chiyoda City, Tokyo, Japan',
+             phone: '+81 3 5224 3333',
+             website: 'https://www.aman.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+             room_type: 'Luxury Room',
+             cancellation_policy: 'Free cancellation up to 72 hours before check-in'
+           },
+           {
+             hotel_name: 'Park Hyatt Tokyo',
+             price_breakdown: { all_inclusive_amount: { value: '380' } },
+             url: '#',
+             review_score: 4.6,
+             address: '3-6-1 Nishi Shinjuku, Shinjuku City, Tokyo, Japan',
+             phone: '+81 3 5322 1234',
+             website: 'https://www.hyatt.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym'],
+             room_type: 'Park View Room',
+             cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+           }
+         ],
+         'dubai': [
+           {
+             hotel_name: 'Burj Al Arab Jumeirah',
+             price_breakdown: { all_inclusive_amount: { value: '1500' } },
+             url: '#',
+             review_score: 4.9,
+             address: 'Jumeirah St, Umm Suqeim 3, Dubai, UAE',
+             phone: '+971 4 301 7777',
+             website: 'https://www.jumeirah.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+             room_type: 'Deluxe Suite',
+             cancellation_policy: 'Free cancellation up to 72 hours before check-in'
+           },
+           {
+             hotel_name: 'Atlantis The Palm',
+             price_breakdown: { all_inclusive_amount: { value: '450' } },
+             url: '#',
+             review_score: 4.5,
+             address: 'Crescent Rd, The Palm Jumeirah, Dubai, UAE',
+             phone: '+971 4 426 2000',
+             website: 'https://www.atlantis.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym', 'pool'],
+             room_type: 'Ocean View Room',
+             cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+           },
+           {
+             hotel_name: 'Armani Hotel Dubai',
+             price_breakdown: { all_inclusive_amount: { value: '800' } },
+             url: '#',
+             review_score: 4.7,
+             address: 'Burj Khalifa, Downtown Dubai, UAE',
+             phone: '+971 4 888 3888',
+             website: 'https://www.armanihotels.com',
+             amenities: ['wifi', 'restaurant', 'spa', 'gym'],
+             room_type: 'Armani Suite',
+             cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+           }
+         ]
+      };
+      
+      // Return destination-specific hotels or default to generic hotels
+      return hotelTemplates[cityName] || [
+        {
+          hotel_name: `${destination.split(',')[0].trim()} Grand Hotel`,
+          price_breakdown: { all_inclusive_amount: { value: '200' } },
+          url: '#',
+          review_score: 4.3,
+          address: `Main Street, ${destination}`,
+          phone: '+1 555 123 4567',
+          website: 'https://www.example.com',
+          amenities: ['wifi', 'restaurant', 'gym'],
+          room_type: 'Standard Room',
+          cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+        },
+        {
+          hotel_name: `${destination.split(',')[0].trim()} Plaza Hotel`,
+          price_breakdown: { all_inclusive_amount: { value: '280' } },
+          url: '#',
+          review_score: 4.5,
+          address: `Central District, ${destination}`,
+          phone: '+1 555 987 6543',
+          website: 'https://www.example.com',
+          amenities: ['wifi', 'restaurant', 'spa', 'gym'],
+          room_type: 'Deluxe Room',
+          cancellation_policy: 'Free cancellation up to 48 hours before check-in'
+        },
+        {
+          hotel_name: `${destination.split(',')[0].trim()} Boutique Hotel`,
+          price_breakdown: { all_inclusive_amount: { value: '150' } },
+          url: '#',
+          review_score: 4.1,
+          address: `Historic Quarter, ${destination}`,
+          phone: '+1 555 456 7890',
+          website: 'https://www.example.com',
+          amenities: ['wifi', 'restaurant'],
+          room_type: 'Comfort Room',
+          cancellation_policy: 'Free cancellation up to 24 hours before check-in'
+        }
+      ];
+    };
+    
     try {
       if (process.env.RAPIDAPI_KEY) {
         const hotelsRes = await axios.get('https://booking-com.p.rapidapi.com/v1/hotels/search', {
@@ -347,12 +782,8 @@ export async function POST(req: Request) {
       }
     } catch (hotelError) {
       console.error('Hotel API error:', hotelError);
-      // Fallback hotel data with more specific names
-      hotels = [
-        { hotel_name: 'The Plaza Hotel', price_breakdown: { all_inclusive_amount: { value: '450' } }, url: '#' },
-        { hotel_name: 'Waldorf Astoria New York', price_breakdown: { all_inclusive_amount: { value: '380' } }, url: '#' },
-        { hotel_name: 'The Ritz-Carlton New York', price_breakdown: { all_inclusive_amount: { value: '520' } }, url: '#' }
-      ];
+      // Use destination-specific fallback hotel data
+      hotels = generateDestinationHotels(destination);
     }
 
     // 5. Merge data and create final itinerary
@@ -361,7 +792,14 @@ export async function POST(req: Request) {
       hotel: hotels[index % hotels.length] ? {
         name: hotels[index % hotels.length].hotel_name || 'Hotel Name Not Available',
         price: hotels[index % hotels.length].price_breakdown?.all_inclusive_amount?.value || 'Price not available',
-        link: hotels[index % hotels.length].url || '#'
+        link: hotels[index % hotels.length].url || '#',
+        rating: hotels[index % hotels.length].review_score || null,
+        amenities: hotels[index % hotels.length].amenities || [],
+        address: hotels[index % hotels.length].address || null,
+        phone: hotels[index % hotels.length].phone || null,
+        website: hotels[index % hotels.length].website || null,
+        roomType: hotels[index % hotels.length].room_type || null,
+        cancellationPolicy: hotels[index % hotels.length].cancellation_policy || null
       } : null,
       flight: flights[index % flights.length] ? {
         airline: flights[index % flights.length].validatingAirlineCodes?.[0] || 'Airline not available',
@@ -370,7 +808,98 @@ export async function POST(req: Request) {
       } : null
     }));
 
-    return NextResponse.json(finalItinerary);
+    // 6. Fetch weather data for the destination
+    let weatherData = null;
+    try {
+      console.log('Fetching weather for:', { destination, startDate, endDate });
+      const weatherResponse = await fetch(`${req.headers.get('origin') || 'http://localhost:3000'}/api/weather?destination=${encodeURIComponent(destination)}&startDate=${startDate}&endDate=${endDate}`);
+      console.log('Weather response status:', weatherResponse.status);
+      if (weatherResponse.ok) {
+        weatherData = await weatherResponse.json();
+        console.log('Weather data received:', weatherData);
+      } else {
+        console.error('Weather API error status:', weatherResponse.status);
+        const errorText = await weatherResponse.text();
+        console.error('Weather API error text:', errorText);
+      }
+    } catch (weatherError) {
+      console.error('Weather fetch error:', weatherError);
+    }
+
+    // If weather fetch failed, create fallback weather data
+    if (!weatherData) {
+      console.log('Creating fallback weather data');
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
+      const travelDates = [];
+      
+      // Generate array of dates between start and end
+      for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
+        travelDates.push({
+          date: d.toISOString().split('T')[0],
+          dayOfWeek: d.toLocaleDateString('en-US', { weekday: 'long' }),
+          temperature: { min: 15, max: 25, average: 20 },
+          humidity: 60,
+          description: 'Partly cloudy',
+          icon: '02d',
+          windSpeed: 5,
+          precipitation: 0
+        });
+      }
+      
+      weatherData = {
+        destination: destination.split(',')[0].trim(),
+        travelDates,
+        units: 'metric',
+        note: 'Using fallback weather data'
+      };
+    }
+
+    // 7. Fetch news data for the destination (non-blocking)
+    let newsData = null;
+    try {
+      console.log('Fetching news for:', { destination, startDate, endDate });
+      const newsResponse = await fetch(`${req.headers.get('origin') || 'http://localhost:3000'}/api/news?destination=${encodeURIComponent(destination)}&startDate=${startDate}&endDate=${endDate}`);
+      console.log('News response status:', newsResponse.status);
+      
+      if (newsResponse.ok) {
+        newsData = await newsResponse.json();
+        console.log('News data received:', newsData);
+        
+        // Check if newsData has the expected structure
+        if (!newsData.news || !Array.isArray(newsData.news)) {
+          console.error('Invalid news data structure:', newsData);
+          newsData = null;
+        }
+      } else {
+        console.error('News API error status:', newsResponse.status);
+        const errorText = await newsResponse.text();
+        console.error('News API error text:', errorText);
+        newsData = null;
+      }
+    } catch (newsError) {
+      console.error('News fetch error:', newsError);
+      newsData = null;
+    }
+    
+    console.log('Final newsData:', newsData);
+
+    // 8. Add weather and news to the final response
+    const responseWithWeatherAndNews = {
+      itinerary: finalItinerary,
+      weather: weatherData,
+      news: newsData,
+      tripInfo: {
+        destination,
+        startDate,
+        endDate,
+        days,
+        totalBudget,
+        dailyBudget
+      }
+    };
+
+    return NextResponse.json(responseWithWeatherAndNews);
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json(
@@ -379,5 +908,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-

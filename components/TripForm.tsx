@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User } from 'lucide-react'
+import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User, Zap } from 'lucide-react'
 
 interface FormData {
   name: string
@@ -16,7 +16,6 @@ interface FormData {
   destination: string
   accommodations: string
   activities: string[]
-  budget: string
   totalBudget: number
   personalPreferences: {
     travelStyle: string[]
@@ -50,7 +49,6 @@ export default function TripForm() {
     destination: '',
     accommodations: 'hotel',
     activities: [],
-    budget: 'medium',
     totalBudget: 0,
     personalPreferences: {
       travelStyle: [],
@@ -66,21 +64,36 @@ export default function TripForm() {
   const [budgetRecommendations, setBudgetRecommendations] = useState<BudgetRecommendations | null>(null)
   const [tripDuration, setTripDuration] = useState(0)
 
+  // Template data for quick testing
+  const templateData: FormData = {
+    name: 'John Doe',
+    startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+    endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 14 days from now
+    departureLocation: 'New York, NY',
+    destination: 'Paris, France',
+    accommodations: 'hotel',
+    activities: ['culture', 'food', 'art', 'history'],
+    totalBudget: 3000,
+    personalPreferences: {
+      travelStyle: ['Cultural', 'Relaxation'],
+      interests: ['Museums', 'Food & Dining', 'Art', 'History'],
+      dietaryRestrictions: ['No restrictions'],
+      accessibility: ['No special requirements'],
+      pace: 'moderate',
+      groupSize: 'couple',
+      specialRequirements: 'Interested in local cuisine and historical sites'
+    }
+  }
+
+  const handleAutofill = () => {
+    setFormData(templateData)
+  }
+
   // Calculate budget recommendations when total budget or trip duration changes
   useEffect(() => {
     if (formData.totalBudget > 0 && tripDuration > 0) {
       const recommendations = calculateBudgetRecommendations(formData.totalBudget, tripDuration)
       setBudgetRecommendations(recommendations)
-      
-      // Auto-select budget category based on daily budget
-      const dailyBudget = recommendations.dailyBudget
-      if (dailyBudget <= 150) {
-        setFormData(prev => ({ ...prev, budget: 'budget' }))
-      } else if (dailyBudget <= 300) {
-        setFormData(prev => ({ ...prev, budget: 'medium' }))
-      } else {
-        setFormData(prev => ({ ...prev, budget: 'luxury' }))
-      }
     }
   }, [formData.totalBudget, tripDuration])
 
@@ -110,28 +123,13 @@ export default function TripForm() {
     const transportBudget = (totalBudget * transportPercent) / days
     const shoppingBudget = (totalBudget * shoppingPercent) / days
 
-    // Determine budget category
-    let budgetCategory: string
-    if (dailyBudget <= 150) budgetCategory = 'budget'
-    else if (dailyBudget <= 300) budgetCategory = 'medium'
-    else budgetCategory = 'luxury'
-
-    // Budget-based recommendations
-    const accommodationOptions = {
-      budget: ['hostel', 'budget-hotel', 'guesthouse', 'camping'],
-      medium: ['hotel', 'apartment', 'bed-and-breakfast', 'resort'],
-      luxury: ['luxury-hotel', 'resort', 'boutique-hotel', 'villa']
-    }
-
-    const activityOptions = {
-      budget: ['culture', 'nature', 'history', 'city', 'beach'],
-      medium: ['food', 'adventure', 'art', 'music', 'shopping'],
-      luxury: ['luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness']
-    }
+    // Provide general recommendations based on daily budget
+    const accommodationOptions = ['hostel', 'budget-hotel', 'guesthouse', 'hotel', 'apartment', 'bed-and-breakfast', 'resort', 'luxury-hotel', 'boutique-hotel', 'villa']
+    const activityOptions = ['culture', 'nature', 'history', 'city', 'beach', 'food', 'adventure', 'art', 'music', 'shopping', 'luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness']
 
     return {
-      accommodations: accommodationOptions[budgetCategory as keyof typeof accommodationOptions] || accommodationOptions.medium,
-      activities: activityOptions[budgetCategory as keyof typeof activityOptions] || activityOptions.medium,
+      accommodations: accommodationOptions,
+      activities: activityOptions,
       dailyBudget,
       accommodationBudget,
       activityBudget,
@@ -294,6 +292,19 @@ export default function TripForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Autofill Template Button */}
+      <div className="flex justify-center mb-6">
+        <Button
+          type="button"
+          onClick={handleAutofill}
+          variant="outline"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+        >
+          <Zap className="w-4 h-4" />
+          Quick Fill Template (Test Mode)
+        </Button>
+      </div>
+
       {/* Name */}
       <div className="space-y-2">
         <Label htmlFor="name">Traveler Name</Label>
@@ -414,24 +425,6 @@ export default function TripForm() {
                 <div className="text-lg font-bold">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
               </div>
             </div>
-
-            {/* Budget Category Indicator */}
-            <div className="mt-3 p-2 bg-white rounded border">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-blue-600" />
-                <span className="text-sm">
-                  <span className="font-medium">Budget Category:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-                    formData.budget === 'budget' ? 'bg-green-100 text-green-800' :
-                    formData.budget === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
-                    {formData.budget === 'budget' ? 'Budget' : 
-                     formData.budget === 'medium' ? 'Medium' : 'Luxury'}
-                  </span>
-                </span>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -529,27 +522,6 @@ export default function TripForm() {
             </label>
           ))}
         </div>
-      </div>
-
-      {/* Budget Category - Now auto-selected based on total budget */}
-      <div className="space-y-2">
-        <Label htmlFor="budget">Budget Category</Label>
-        <p className="text-xs text-muted-foreground">
-          Auto-selected based on your total budget
-        </p>
-        <Select
-          value={formData.budget}
-          onValueChange={(value) => handleInputChange('budget', value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select budget range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="budget">Budget ($50-150/day)</SelectItem>
-            <SelectItem value="medium">Medium ($150-300/day)</SelectItem>
-            <SelectItem value="luxury">Luxury ($300+/day)</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Personal Preferences Section */}
