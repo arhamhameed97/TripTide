@@ -64,5 +64,8 @@ jspm_packages/
 # TripTide folder (duplicate)
 /TripTide
 
+# Force Vercel deployment update
+# Updated: 2025-01-03
+
 
 
