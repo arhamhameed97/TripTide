@@ -18,6 +18,13 @@ A comprehensive, AI-driven travel planning application that helps users create p
 - **Contextual Help**: Understands current form state and provides relevant suggestions
 - **Fallback Mode**: Works even without API keys for testing and development
 
+### 🌙 **Dark Theme Support**
+- **Theme Toggle**: Beautiful dark/light theme switcher in top-left corner
+- **System Preference**: Automatically detects and matches your OS theme
+- **Persistent Storage**: Remembers your theme choice across sessions
+- **Smooth Transitions**: 200ms color transitions for all elements
+- **Comprehensive Coverage**: All components themed for consistent experience
+
 ### 💰 **Comprehensive Budget System**
 - **Total Trip Budget**: Set your overall budget for the entire trip
 - **Daily Budget Calculation**: Automatic daily budget allocation
