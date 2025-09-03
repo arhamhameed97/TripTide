@@ -346,10 +346,10 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
           type="button"
           onClick={handleAutofill}
           variant="outline"
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-700 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-800/30 dark:hover:to-purple-800/30"
         >
           <Zap className="w-4 h-4" />
-                     Quick Fill Template (NY → SF)
+          Quick Fill Template (NY → SF)
         </Button>
       </div>
 
@@ -404,7 +404,7 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
         </div>
         
         {formData.startDate && formData.endDate && (
-          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground bg-muted/50 dark:bg-gray-800/50 p-3 rounded-lg">
             <Calendar className="w-4 h-4 inline mr-2" />
             Trip Duration: {tripDuration} day{tripDuration > 1 ? 's' : ''}
           </div>
@@ -421,7 +421,7 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
         <div className="space-y-2">
           <Label htmlFor="totalBudget">What's your total budget for the entire trip?</Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
             <Input
               id="totalBudget"
               type="number"
@@ -441,36 +441,36 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
 
         {/* Budget Breakdown - NEW SECTION */}
         {budgetRecommendations && (
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
             <div className="flex items-center gap-2 mb-3">
-              <Calculator className="w-4 h-4 text-blue-600" />
-              <span className="font-medium text-blue-800">Budget Breakdown</span>
+              <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="font-medium text-blue-800 dark:text-blue-200">Budget Breakdown</span>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-green-700">Daily Budget</div>
-                <div className="text-lg font-bold">${budgetRecommendations.dailyBudget.toFixed(0)}</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-green-700 dark:text-green-400">Daily Budget</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.dailyBudget.toFixed(0)}</div>
               </div>
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-blue-700">Accommodation</div>
-                <div className="text-lg font-bold">${budgetRecommendations.accommodationBudget.toFixed(0)}/day</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-blue-700 dark:text-blue-400">Accommodation</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.accommodationBudget.toFixed(0)}/day</div>
               </div>
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-purple-700">Food</div>
-                <div className="text-lg font-bold">${budgetRecommendations.foodBudget.toFixed(0)}/day</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-purple-700 dark:text-purple-400">Food</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.foodBudget.toFixed(0)}/day</div>
               </div>
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-orange-700">Activities</div>
-                <div className="text-lg font-bold">${budgetRecommendations.activityBudget.toFixed(0)}/day</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-orange-700 dark:text-orange-400">Activities</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.activityBudget.toFixed(0)}/day</div>
               </div>
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-red-700">Transport</div>
-                <div className="text-lg font-bold">${budgetRecommendations.transportBudget.toFixed(0)}/day</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-red-700 dark:text-red-400">Transport</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.transportBudget.toFixed(0)}/day</div>
               </div>
-              <div className="bg-white p-2 rounded border">
-                <div className="font-medium text-gray-700">Shopping</div>
-                <div className="text-lg font-bold">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                <div className="font-medium text-gray-700 dark:text-gray-400">Shopping</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
               </div>
             </div>
           </div>
@@ -564,7 +564,7 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
                     handleInputChange('activities', formData.activities.filter(a => a !== activity))
                   }
                 }}
-                className="rounded border-gray-300"
+                                 className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-primary"
               />
               <span className="text-sm capitalize">{activity.replace('-', ' ')}</span>
             </label>
@@ -692,7 +692,7 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
             placeholder="Any special needs, allergies, or specific requests..."
             value={formData.personalPreferences.specialRequirements}
             onChange={(e) => handlePreferenceChange('specialRequirements', e.target.value, true)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
             rows={3}
           />
         </div>

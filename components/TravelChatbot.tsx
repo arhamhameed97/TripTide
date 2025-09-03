@@ -148,7 +148,7 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
 
       {/* Chatbot Interface */}
       {isOpen && (
-        <Card className="fixed bottom-24 right-6 z-50 w-96 h-[500px] shadow-2xl border-0 bg-white">
+        <Card className="fixed bottom-24 right-6 z-50 w-96 h-[500px] shadow-2xl border-0 bg-white dark:bg-gray-800">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-t-lg">
             <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
                     className={`max-w-[80%] rounded-lg p-3 ${
                       message.sender === 'user'
                         ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
@@ -185,10 +185,10 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
               
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg p-3">
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm text-gray-600">AI is thinking...</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">AI is thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -199,7 +199,7 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
           </div>
 
           {/* Quick Actions */}
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex flex-wrap gap-2 mb-3">
               {['budget', 'activities', 'accommodation', 'dietary', 'accessibility'].map((action) => (
                 <Button
@@ -216,7 +216,7 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
+          <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex gap-2">
               <Input
                 value={inputValue}

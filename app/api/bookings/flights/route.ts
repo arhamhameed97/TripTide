@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // - Kayak API
     // - Expedia API
 
-    const flights = await fetchRealFlightData(origin, destination, departureDate, returnDate, passengers, cabinClass, budget)
+    const flights = await fetchRealFlightData(origin, destination, departureDate, returnDate || undefined, passengers, cabinClass, budget)
 
     return NextResponse.json({
       success: true,
