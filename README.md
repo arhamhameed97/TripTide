@@ -10,6 +10,14 @@ A comprehensive, AI-driven travel planning application that helps users create p
 - **Smart Activity Planning**: Hourly breakdown with realistic timing and costs
 - **Location Intelligence**: Full addresses and specific venue recommendations
 
+### 🤖 **AI Travel Assistant Chatbot**
+- **Interactive Conversations**: Natural language chat interface for trip planning
+- **Smart Preference Updates**: Automatically updates form fields based on conversation
+- **Quick Actions**: Pre-built buttons for common travel topics (budget, activities, accommodation)
+- **Real-time Updates**: Instant form updates with visual notifications
+- **Contextual Help**: Understands current form state and provides relevant suggestions
+- **Fallback Mode**: Works even without API keys for testing and development
+
 ### 💰 **Comprehensive Budget System**
 - **Total Trip Budget**: Set your overall budget for the entire trip
 - **Daily Budget Calculation**: Automatic daily budget allocation
@@ -43,7 +51,7 @@ A comprehensive, AI-driven travel planning application that helps users create p
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- Google Gemini AI API key
+- Google Gemini AI API key (optional for basic functionality)
 
 ### Installation
 
@@ -63,11 +71,19 @@ A comprehensive, AI-driven travel planning application that helps users create p
 3. **Environment Setup**
    Create a `.env.local` file in the root directory:
    ```env
-   GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
+   # Google Gemini API Key (for full AI functionality)
+   # Get your API key from: https://makersuite.google.com/app/apikey
+   GEMINI_API_KEY=your_gemini_api_key_here
+   
+   # Optional APIs for enhanced features
+   AMADEUS_CLIENT_ID=your_amadeus_client_id_here
+   AMADEUS_CLIENT_SECRET=your_amadeus_client_secret_here
    RAPIDAPI_KEY=your_rapidapi_key_here
-   AMADEUS_CLIENT_ID=your_amadeus_client_id
-   AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
+   OPENWEATHER_API_KEY=your_openweather_api_key_here
+   NEWS_API_KEY=your_news_api_key_here
    ```
+
+   **Note**: The chatbot will work with fallback responses even without the GEMINI_API_KEY. To get full AI functionality, add your actual API key.
 
 4. **Run the development server**
    ```bash
@@ -101,12 +117,20 @@ A comprehensive, AI-driven travel planning application that helps users create p
    - Print or share your travel plan
    - Save for future reference
 
+### 5. **AI Assistant Chatbot**
+   - Click the chat button in the bottom-right corner
+   - Ask questions about your trip preferences
+   - Use quick action buttons for common topics
+   - Watch as the AI automatically updates your form
+   - Get personalized recommendations based on your conversation
+
 ## 🔧 API Integration
 
 ### Google Gemini AI
-- **Purpose**: Generate personalized itineraries
-- **Features**: Location-specific recommendations, cost estimates
+- **Purpose**: Generate personalized itineraries and chatbot responses
+- **Features**: Location-specific recommendations, cost estimates, natural language processing
 - **Rate Limits**: Single API call per request to conserve quota
+- **Fallback Mode**: Works without API key using predefined responses
 
 ### External APIs (Optional)
 - **Amadeus**: Flight information and pricing
@@ -119,11 +143,13 @@ A comprehensive, AI-driven travel planning application that helps users create p
 TripTide/
 ├── app/                          # Next.js 13+ app directory
 │   ├── api/                     # API routes
+│   │   ├── chatbot/             # AI chatbot endpoint
 │   │   └── generate-itinerary/  # AI itinerary generation
 │   ├── results/                 # Results page
 │   └── page.tsx                 # Home page
 ├── components/                   # React components
 │   ├── TripForm.tsx            # Main trip planning form
+│   ├── TravelChatbot.tsx       # AI chatbot interface
 │   ├── BudgetSummary.tsx       # Budget overview component
 │   ├── TripCostSummary.tsx     # Cost tracking component
 │   └── ItineraryTable.tsx      # Itinerary display
@@ -139,6 +165,14 @@ TripTide/
 - **Date Selection**: Flexible date range picker
 - **Preferences**: Accommodation and activity choices
 - **Smart Validation**: Real-time form validation
+
+### TravelChatbot
+- **Interactive Interface**: Floating chat button with expandable interface
+- **Natural Language Processing**: Understands user intent and preferences
+- **Form Integration**: Automatically updates form fields based on conversation
+- **Quick Actions**: Pre-built buttons for common travel topics
+- **Visual Feedback**: Notifications when preferences are updated
+- **Fallback Mode**: Works without API keys for testing
 
 ### BudgetSummary
 - **Daily Budget**: Automatic calculation and breakdown

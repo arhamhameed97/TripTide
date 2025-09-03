@@ -9,6 +9,7 @@ interface HourlyActivity {
   activity: string
   location: string
   estimatedCost: string
+  coordinates?: [number, number] // Add coordinates field
 }
 
 interface ItineraryDay {

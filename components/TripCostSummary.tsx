@@ -29,14 +29,12 @@ interface TripCostSummaryProps {
   itinerary: ItineraryDay[]
   totalBudget: number
   days: number
-  budgetCategory: string
 }
 
 export default function TripCostSummary({ 
   itinerary, 
   totalBudget, 
-  days, 
-  budgetCategory 
+  days
 }: TripCostSummaryProps) {
   
   // Calculate total estimated costs from itinerary

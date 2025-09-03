@@ -5,7 +5,6 @@ import { Calculator, DollarSign, Info, TrendingUp } from 'lucide-react'
 interface BudgetSummaryProps {
   totalBudget: number
   days: number
-  budgetCategory: string
   budgetRecommendations: {
     dailyBudget: number
     accommodationBudget: number
@@ -19,39 +18,13 @@ interface BudgetSummaryProps {
 export default function BudgetSummary({ 
   totalBudget, 
   days, 
-  budgetCategory, 
   budgetRecommendations 
 }: BudgetSummaryProps) {
-  const getBudgetCategoryColor = (category: string) => {
-    switch (category) {
-      case 'budget':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'luxury':
-        return 'bg-purple-100 text-purple-800 border-purple-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getBudgetCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'budget':
-        return 'Budget-Friendly'
-      case 'medium':
-        return 'Mid-Range'
-      case 'luxury':
-        return 'Luxury'
-      default:
-        return 'Standard'
-    }
-  }
-
   const getSavingsTip = () => {
-    if (budgetCategory === 'budget') {
+    const dailyBudget = budgetRecommendations.dailyBudget
+    if (dailyBudget <= 150) {
       return "Consider staying in hostels or budget hotels to save on accommodation costs."
-    } else if (budgetCategory === 'medium') {
+    } else if (dailyBudget <= 300) {
       return "Mix budget and mid-range options to get the best value for your money."
     } else {
       return "Your budget allows for premium experiences and luxury accommodations."
@@ -93,10 +66,10 @@ export default function BudgetSummary({
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2 mb-2">
             <Info className="w-5 h-5 text-purple-600" />
-            <span className="font-medium text-gray-700">Category</span>
+            <span className="font-medium text-gray-700">Budget Status</span>
           </div>
-          <div className={`text-lg font-bold px-3 py-1 rounded-full border ${getBudgetCategoryColor(budgetCategory)}`}>
-            {getBudgetCategoryLabel(budgetCategory)}
+          <div className="text-lg font-bold px-3 py-1 rounded-full border bg-blue-100 text-blue-800 border-blue-200">
+            Well-Planned
           </div>
         </div>
       </div>

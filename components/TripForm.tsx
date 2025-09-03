@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User } from 'lucide-react'
+import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User, Zap } from 'lucide-react'
 
 interface FormData {
   name: string
@@ -16,7 +16,6 @@ interface FormData {
   destination: string
   accommodations: string
   activities: string[]
-  budget: string
   totalBudget: number
   personalPreferences: {
     travelStyle: string[]
@@ -40,7 +39,12 @@ interface BudgetRecommendations {
   shoppingBudget: number
 }
 
-export default function TripForm() {
+interface TripFormProps {
+  onPreferencesUpdate?: (preferences: any) => void
+  currentFormData?: any
+}
+
+export default function TripForm({ onPreferencesUpdate, currentFormData }: TripFormProps) {
   const router = useRouter()
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -50,7 +54,6 @@ export default function TripForm() {
     destination: '',
     accommodations: 'hotel',
     activities: [],
-    budget: 'medium',
     totalBudget: 0,
     personalPreferences: {
       travelStyle: [],
@@ -65,22 +68,38 @@ export default function TripForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [budgetRecommendations, setBudgetRecommendations] = useState<BudgetRecommendations | null>(null)
   const [tripDuration, setTripDuration] = useState(0)
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false)
+
+  // Template data for quick testing - Updated for NY to SF trip (2 days)
+  const templateData: FormData = {
+    name: 'John Doe',
+    startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+    endDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 9 days from now (2 days after start)
+    departureLocation: 'New York, NY',
+    destination: 'San Francisco, CA',
+    accommodations: 'hotel',
+    activities: ['culture', 'food', 'history', 'city'],
+    totalBudget: 1500,
+    personalPreferences: {
+      travelStyle: ['Cultural', 'Adventure'],
+      interests: ['Local Cuisine', 'Historical Sites', 'City Exploration', 'Cultural Experiences'],
+      dietaryRestrictions: ['No restrictions'],
+      accessibility: ['No special requirements'],
+      pace: 'moderate',
+      groupSize: 'couple',
+      specialRequirements: 'Interested in American culture, local food, and historical landmarks. Need to rent a car for transportation during the trip.'
+    }
+  }
+
+  const handleAutofill = () => {
+    setFormData(templateData)
+  }
 
   // Calculate budget recommendations when total budget or trip duration changes
   useEffect(() => {
     if (formData.totalBudget > 0 && tripDuration > 0) {
       const recommendations = calculateBudgetRecommendations(formData.totalBudget, tripDuration)
       setBudgetRecommendations(recommendations)
-      
-      // Auto-select budget category based on daily budget
-      const dailyBudget = recommendations.dailyBudget
-      if (dailyBudget <= 150) {
-        setFormData(prev => ({ ...prev, budget: 'budget' }))
-      } else if (dailyBudget <= 300) {
-        setFormData(prev => ({ ...prev, budget: 'medium' }))
-      } else {
-        setFormData(prev => ({ ...prev, budget: 'luxury' }))
-      }
     }
   }, [formData.totalBudget, tripDuration])
 
@@ -93,6 +112,36 @@ export default function TripForm() {
       setTripDuration(days)
     }
   }, [formData.startDate, formData.endDate])
+
+  // Handle preference updates from chatbot
+  useEffect(() => {
+    if (currentFormData && Object.keys(currentFormData).length > 0) {
+      setFormData(prev => {
+        const updatedData = { ...prev }
+        
+        // Handle nested personalPreferences updates
+        if (currentFormData.personalPreferences) {
+          updatedData.personalPreferences = {
+            ...prev.personalPreferences,
+            ...currentFormData.personalPreferences
+          }
+        }
+        
+        // Handle direct field updates
+        Object.keys(currentFormData).forEach(key => {
+          if (key !== 'personalPreferences') {
+            (updatedData as any)[key] = currentFormData[key]
+          }
+        })
+        
+        return updatedData
+      })
+      
+      // Show notification
+      setShowUpdateNotification(true)
+      setTimeout(() => setShowUpdateNotification(false), 3000)
+    }
+  }, [currentFormData])
 
   const calculateBudgetRecommendations = (totalBudget: number, days: number): BudgetRecommendations => {
     const dailyBudget = totalBudget / days
@@ -110,28 +159,13 @@ export default function TripForm() {
     const transportBudget = (totalBudget * transportPercent) / days
     const shoppingBudget = (totalBudget * shoppingPercent) / days
 
-    // Determine budget category
-    let budgetCategory: string
-    if (dailyBudget <= 150) budgetCategory = 'budget'
-    else if (dailyBudget <= 300) budgetCategory = 'medium'
-    else budgetCategory = 'luxury'
-
-    // Budget-based recommendations
-    const accommodationOptions = {
-      budget: ['hostel', 'budget-hotel', 'guesthouse', 'camping'],
-      medium: ['hotel', 'apartment', 'bed-and-breakfast', 'resort'],
-      luxury: ['luxury-hotel', 'resort', 'boutique-hotel', 'villa']
-    }
-
-    const activityOptions = {
-      budget: ['culture', 'nature', 'history', 'city', 'beach'],
-      medium: ['food', 'adventure', 'art', 'music', 'shopping'],
-      luxury: ['luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness']
-    }
+    // Provide general recommendations based on daily budget
+    const accommodationOptions = ['hostel', 'budget-hotel', 'guesthouse', 'hotel', 'apartment', 'bed-and-breakfast', 'resort', 'luxury-hotel', 'boutique-hotel', 'villa']
+    const activityOptions = ['culture', 'nature', 'history', 'city', 'beach', 'food', 'adventure', 'art', 'music', 'shopping', 'luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness']
 
     return {
-      accommodations: accommodationOptions[budgetCategory as keyof typeof accommodationOptions] || accommodationOptions.medium,
-      activities: activityOptions[budgetCategory as keyof typeof activityOptions] || activityOptions.medium,
+      accommodations: accommodationOptions,
+      activities: activityOptions,
       dailyBudget,
       accommodationBudget,
       activityBudget,
@@ -294,6 +328,31 @@ export default function TripForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Update Notification */}
+      {showUpdateNotification && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-right">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>AI Assistant updated your preferences!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Autofill Template Button */}
+      <div className="flex justify-center mb-6">
+        <Button
+          type="button"
+          onClick={handleAutofill}
+          variant="outline"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+        >
+          <Zap className="w-4 h-4" />
+                     Quick Fill Template (NY → SF)
+        </Button>
+      </div>
+
       {/* Name */}
       <div className="space-y-2">
         <Label htmlFor="name">Traveler Name</Label>
@@ -414,24 +473,6 @@ export default function TripForm() {
                 <div className="text-lg font-bold">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
               </div>
             </div>
-
-            {/* Budget Category Indicator */}
-            <div className="mt-3 p-2 bg-white rounded border">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-blue-600" />
-                <span className="text-sm">
-                  <span className="font-medium">Budget Category:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-                    formData.budget === 'budget' ? 'bg-green-100 text-green-800' :
-                    formData.budget === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
-                    {formData.budget === 'budget' ? 'Budget' : 
-                     formData.budget === 'medium' ? 'Medium' : 'Luxury'}
-                  </span>
-                </span>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -529,27 +570,6 @@ export default function TripForm() {
             </label>
           ))}
         </div>
-      </div>
-
-      {/* Budget Category - Now auto-selected based on total budget */}
-      <div className="space-y-2">
-        <Label htmlFor="budget">Budget Category</Label>
-        <p className="text-xs text-muted-foreground">
-          Auto-selected based on your total budget
-        </p>
-        <Select
-          value={formData.budget}
-          onValueChange={(value) => handleInputChange('budget', value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select budget range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="budget">Budget ($50-150/day)</SelectItem>
-            <SelectItem value="medium">Medium ($150-300/day)</SelectItem>
-            <SelectItem value="luxury">Luxury ($300+/day)</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Personal Preferences Section */}

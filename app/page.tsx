@@ -1,6 +1,16 @@
+'use client'
+
 import TripForm from '@/components/TripForm'
+import TravelChatbot from '@/components/TravelChatbot'
+import { useState } from 'react'
 
 export default function Home() {
+  const [formData, setFormData] = useState<any>({})
+
+  const handlePreferencesUpdate = (preferences: any) => {
+    setFormData((prev: any) => ({ ...prev, ...preferences }))
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
       <div className="container mx-auto">
@@ -13,7 +23,9 @@ export default function Home() {
           </p>
         </div>
         
-        <TripForm />
+        <TripForm onPreferencesUpdate={handlePreferencesUpdate} currentFormData={formData} />
+        
+        <TravelChatbot onPreferencesUpdate={handlePreferencesUpdate} currentFormData={formData} />
         
         {/* Features Section */}
         <div className="mt-16 grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
