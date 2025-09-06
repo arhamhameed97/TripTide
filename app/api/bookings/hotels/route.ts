@@ -233,3 +233,5 @@ async function fetchRealHotelData(
 
   return filteredHotels
 }
+
+

@@ -236,3 +236,5 @@ function addRandomVariation(coords: [number, number], variance = 0.01): [number,
   const lngVariation = (Math.random() - 0.5) * variance
   return [coords[0] + latVariation, coords[1] + lngVariation]
 }
+
+

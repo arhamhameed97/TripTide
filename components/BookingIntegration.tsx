@@ -24,12 +24,17 @@ import {
   Wifi,
   Car,
   Utensils,
-  Dumbbell
+  Dumbbell,
+  CreditCard,
+  User,
+  Mail,
+  Phone,
+  Calendar as CalendarIcon
 } from 'lucide-react'
 
 interface BookingOption {
   id: string
-  type: 'hotel' | 'flight' | 'activity'
+  type: 'hotel' | 'flight' | 'activity' | 'car-rental'
   name: string
   description: string
   price: number
@@ -52,6 +57,12 @@ interface BookingOption {
   arrivalTime?: string
   airline?: string
   flightNumber?: string
+  // Car rental specific fields
+  carType?: string
+  transmission?: string
+  seats?: number
+  pickupLocation?: string
+  returnLocation?: string
 }
 
 interface BookingIntegrationProps {
@@ -77,11 +88,27 @@ export default function BookingIntegration({
     hotels: BookingOption[]
     flights: BookingOption[]
     activities: BookingOption[]
+    carRentals: BookingOption[]
   }>({
     hotels: [],
     flights: [],
-    activities: []
+    activities: [],
+    carRentals: []
   })
+  const [showBookingForm, setShowBookingForm] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<BookingOption | null>(null)
+  const [bookingFormData, setBookingFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    passportNumber: '',
+    driverLicenseNumber: '',
+    paymentMethod: 'stripe' as 'stripe' | 'paypal',
+    paymentToken: ''
+  })
+  const [bookingConfirmation, setBookingConfirmation] = useState<any>(null)
   const [filters, setFilters] = useState({
     priceRange: [0, budget],
     rating: 0,
@@ -172,29 +199,33 @@ export default function BookingIntegration({
       setLoading(true)
       try {
         // Fetch real booking data from APIs
-        const [hotelsResponse, flightsResponse, activitiesResponse] = await Promise.all([
+        const [hotelsResponse, flightsResponse, activitiesResponse, carRentalsResponse] = await Promise.all([
           fetch(`/api/bookings/hotels?destination=${encodeURIComponent(destination)}&checkIn=${startDate}&checkOut=${endDate}&guests=${travelers}&budget=${budget}`),
           fetch(`/api/bookings/flights?origin=${encodeURIComponent(departureLocation)}&destination=${encodeURIComponent(destination)}&departureDate=${startDate}&passengers=${travelers}&budget=${budget}`),
-          fetch(`/api/bookings/activities?destination=${encodeURIComponent(destination)}&startDate=${startDate}&endDate=${endDate}&participants=${travelers}&budget=${budget}`)
+          fetch(`/api/bookings/activities?destination=${encodeURIComponent(destination)}&startDate=${startDate}&endDate=${endDate}&participants=${travelers}&budget=${budget}`),
+          fetch(`/api/bookings/car-rentals?destination=${encodeURIComponent(destination)}&pickupDate=${startDate}&returnDate=${endDate}&pickupLocation=${encodeURIComponent(destination)}&drivers=${travelers}&budget=${budget}`)
         ])
 
         const hotelsData = await hotelsResponse.json()
         const flightsData = await flightsResponse.json()
         const activitiesData = await activitiesResponse.json()
+        const carRentalsData = await carRentalsResponse.json()
 
-        if (hotelsData.success && flightsData.success && activitiesData.success) {
+        if (hotelsData.success && flightsData.success && activitiesData.success && carRentalsData.success) {
           setBookings({
             hotels: hotelsData.data,
             flights: flightsData.data,
-            activities: activitiesData.data
+            activities: activitiesData.data,
+            carRentals: carRentalsData.data
           })
         } else {
-          console.error('Failed to fetch booking data:', { hotelsData, flightsData, activitiesData })
+          console.error('Failed to fetch booking data:', { hotelsData, flightsData, activitiesData, carRentalsData })
           // Fallback to mock data if API fails
           setBookings({
             hotels: mockHotels,
             flights: mockFlights,
-            activities: mockActivities
+            activities: mockActivities,
+            carRentals: []
           })
         }
       } catch (error) {
@@ -203,7 +234,8 @@ export default function BookingIntegration({
         setBookings({
           hotels: mockHotels,
           flights: mockFlights,
-          activities: mockActivities
+          activities: mockActivities,
+          carRentals: []
         })
       } finally {
         setLoading(false)
@@ -214,13 +246,99 @@ export default function BookingIntegration({
   }, [destination, startDate, endDate, travelers, budget, departureLocation])
 
   const handleBooking = async (booking: BookingOption) => {
-    setLoading(true)
-    // Simulate booking process
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    setLoading(false)
+    setSelectedBooking(booking)
+    setShowBookingForm(true)
+  }
+
+  const handleAutomaticBooking = async () => {
+    if (!selectedBooking) return
     
-    // Open booking URL in new tab
-    window.open(booking.bookingUrl, '_blank')
+    setLoading(true)
+    
+    try {
+      // Process payment first
+      const paymentResponse = await fetch('/api/payments/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: selectedBooking.price,
+          currency: selectedBooking.currency,
+          paymentMethod: {
+            type: bookingFormData.paymentMethod,
+            token: bookingFormData.paymentToken || 'mock_token_' + Date.now()
+          },
+          customerInfo: {
+            email: bookingFormData.email,
+            name: `${bookingFormData.firstName} ${bookingFormData.lastName}`,
+            phone: bookingFormData.phone
+          },
+          bookingDetails: {
+            type: selectedBooking.type,
+            description: selectedBooking.name,
+            bookingId: selectedBooking.id
+          }
+        })
+      })
+
+      const paymentData = await paymentResponse.json()
+      
+      if (!paymentData.success) {
+        alert(`Payment failed: ${paymentData.payment?.error || 'Unknown error'}`)
+        return
+      }
+
+      // Create booking
+      const bookingResponse = await fetch('/api/bookings/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: selectedBooking.type,
+          itemId: selectedBooking.id,
+          userId: 'user_' + Date.now(), // In production, use actual user ID
+          paymentMethod: {
+            type: bookingFormData.paymentMethod,
+            token: paymentData.payment.transactionId
+          },
+          travelerInfo: {
+            firstName: bookingFormData.firstName,
+            lastName: bookingFormData.lastName,
+            email: bookingFormData.email,
+            phone: bookingFormData.phone,
+            dateOfBirth: bookingFormData.dateOfBirth,
+            passportNumber: bookingFormData.passportNumber,
+            driverLicenseNumber: bookingFormData.driverLicenseNumber
+          },
+          tripDetails: {
+            destination,
+            startDate,
+            endDate,
+            travelers
+          },
+          preferences: {
+            specialRequests: 'Automatic booking via Travel App'
+          }
+        })
+      })
+
+      const bookingData = await bookingResponse.json()
+      
+      if (bookingData.success) {
+        setBookingConfirmation(bookingData.booking)
+        setShowBookingForm(false)
+        alert('Booking confirmed! Check your email for confirmation details.')
+      } else {
+        alert(`Booking failed: ${bookingData.error}`)
+      }
+    } catch (error) {
+      console.error('Booking error:', error)
+      alert('Booking failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const formatPrice = (price: number, currency: string) => {
@@ -326,6 +444,19 @@ export default function BookingIntegration({
               </div>
             )}
 
+            {booking.type === 'car-rental' && (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Car className="w-4 h-4" />
+                  <span>{booking.carType} • {booking.transmission} • {booking.seats} seats</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>{booking.pickupLocation} → {booking.returnLocation}</span>
+                </div>
+              </div>
+            )}
+
             {/* Amenities */}
             <div className="flex flex-wrap gap-2">
               {booking.amenities.slice(0, 3).map((amenity, index) => {
@@ -416,7 +547,7 @@ export default function BookingIntegration({
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="hotels" className="flex items-center gap-2">
             <Hotel className="w-4 h-4" />
             Hotels
@@ -428,6 +559,10 @@ export default function BookingIntegration({
           <TabsTrigger value="activities" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             Activities
+          </TabsTrigger>
+          <TabsTrigger value="car-rentals" className="flex items-center gap-2">
+            <Car className="w-4 h-4" />
+            Car Rentals
           </TabsTrigger>
         </TabsList>
 
@@ -490,7 +625,213 @@ export default function BookingIntegration({
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="car-rentals" className="space-y-4">
+          <div className="grid gap-4">
+            {bookings.carRentals.length > 0 ? (
+              bookings.carRentals.map(renderBookingCard)
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <Car className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No car rentals found</h3>
+                    <p className="text-gray-600">
+                      Try adjusting your search criteria or budget.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Booking Form Modal */}
+      {showBookingForm && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Complete Your Booking
+              </CardTitle>
+              <CardDescription>
+                Book: {selectedBooking.name} - {formatPrice(selectedBooking.price, selectedBooking.currency)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Traveler Information */}
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Traveler Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={bookingFormData.firstName}
+                      onChange={(e) => setBookingFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={bookingFormData.lastName}
+                      onChange={(e) => setBookingFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={bookingFormData.email}
+                      onChange={(e) => setBookingFormData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      value={bookingFormData.phone}
+                      onChange={(e) => setBookingFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      value={bookingFormData.dateOfBirth}
+                      onChange={(e) => setBookingFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                    />
+                  </div>
+                  {selectedBooking.type === 'flight' && (
+                    <div>
+                      <Label htmlFor="passportNumber">Passport Number</Label>
+                      <Input
+                        id="passportNumber"
+                        value={bookingFormData.passportNumber}
+                        onChange={(e) => setBookingFormData(prev => ({ ...prev, passportNumber: e.target.value }))}
+                        placeholder="Enter passport number"
+                      />
+                    </div>
+                  )}
+                  {selectedBooking.type === 'car-rental' && (
+                    <div>
+                      <Label htmlFor="driverLicenseNumber">Driver License Number</Label>
+                      <Input
+                        id="driverLicenseNumber"
+                        value={bookingFormData.driverLicenseNumber}
+                        onChange={(e) => setBookingFormData(prev => ({ ...prev, driverLicenseNumber: e.target.value }))}
+                        placeholder="Enter driver license number"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Payment Method
+                </h3>
+                <div>
+                  <Label htmlFor="paymentMethod">Payment Provider</Label>
+                  <Select
+                    value={bookingFormData.paymentMethod}
+                    onValueChange={(value: 'stripe' | 'paypal') => 
+                      setBookingFormData(prev => ({ ...prev, paymentMethod: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stripe">Stripe (Credit/Debit Card)</SelectItem>
+                      <SelectItem value="paypal">PayPal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Demo Mode:</strong> This is a demonstration. No real payment will be processed. 
+                    The system will simulate a successful payment for testing purposes.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  onClick={handleAutomaticBooking}
+                  disabled={loading || !bookingFormData.firstName || !bookingFormData.lastName || !bookingFormData.email}
+                  className="flex-1"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4 mr-2" />
+                  )}
+                  Book & Pay Now
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowBookingForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Booking Confirmation */}
+      {bookingConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="w-5 h-5" />
+                Booking Confirmed!
+              </CardTitle>
+              <CardDescription>
+                Confirmation Number: {bookingConfirmation.confirmationNumber}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-800">
+                  <Mail className="w-4 h-4" />
+                  <span className="font-medium">Confirmation email sent to: {bookingConfirmation.contactInfo.email}</span>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {formatPrice(bookingConfirmation.totalAmount, bookingConfirmation.currency)}
+                </div>
+                <div className="text-sm text-gray-600">Total Amount Paid</div>
+              </div>
+              <Button 
+                onClick={() => setBookingConfirmation(null)}
+                className="w-full"
+              >
+                Close
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Booking Summary */}
       <Card className="bg-blue-50 border-blue-200">

@@ -41,13 +41,15 @@ interface LocalEventsCalendarProps {
   startDate: string
   endDate: string
   interests: string[]
+  compact?: boolean
 }
 
 export default function LocalEventsCalendar({ 
   destination, 
   startDate, 
   endDate, 
-  interests 
+  interests,
+  compact = false
 }: LocalEventsCalendarProps) {
   const [activeTab, setActiveTab] = useState('all')
   const [events, setEvents] = useState<LocalEvent[]>([])
@@ -61,157 +63,160 @@ export default function LocalEventsCalendar({
     searchQuery: ''
   })
 
-  // Mock events data
-  const mockEvents: LocalEvent[] = [
-    {
-      id: 'event-1',
-      title: 'San Francisco Food Festival',
-      description: 'A celebration of local cuisine featuring top restaurants and food trucks from around the Bay Area.',
-      category: 'food',
-      date: '2024-02-15',
-      time: '11:00 AM',
-      duration: '8 hours',
-      location: 'Pier 39',
-      address: 'Pier 39, San Francisco, CA 94133',
-      coordinates: [37.8087, -122.4098],
-      price: {
-        min: 25,
-        max: 75,
-        currency: 'USD',
-        free: false
+  // Generate events based on travel dates
+  const generateEventsForTravelDates = (startDate: string, endDate: string, destination: string): LocalEvent[] => {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const events: LocalEvent[] = []
+    
+    // Event templates
+    const eventTemplates = [
+      {
+        title: `${destination} Food Festival`,
+        description: `A celebration of local cuisine featuring top restaurants and food trucks from around the area.`,
+        category: 'food' as const,
+        time: '11:00 AM',
+        duration: '8 hours',
+        location: 'Downtown Square',
+        price: { min: 25, max: 75, currency: 'USD', free: false },
+        organizer: 'Local Food & Wine',
+        rating: 4.6,
+        reviewCount: 1247,
+        capacity: 5000,
+        tags: ['Food', 'Local', 'Outdoor', 'Family-friendly'],
+        featured: true
       },
-      organizer: 'SF Food & Wine',
-      image: '/api/placeholder/400/250',
-      rating: 4.6,
-      reviewCount: 1247,
-      capacity: 5000,
-      availableSpots: 2341,
-      tags: ['Food', 'Local', 'Outdoor', 'Family-friendly'],
-      website: 'https://sffoodfestival.com',
-      ticketUrl: 'https://tickets.sffoodfestival.com',
-      featured: true
-    },
-    {
-      id: 'event-2',
-      title: 'Golden Gate Bridge Sunset Concert',
-      description: 'Live music performance with stunning views of the Golden Gate Bridge at sunset.',
-      category: 'concert',
-      date: '2024-02-16',
-      time: '6:30 PM',
-      duration: '2 hours',
-      location: 'Crissy Field',
-      address: 'Crissy Field, San Francisco, CA 94129',
-      coordinates: [37.8063, -122.4658],
-      price: {
-        min: 0,
-        max: 0,
-        currency: 'USD',
-        free: true
+      {
+        title: 'Sunset Concert Series',
+        description: 'Live music performance with stunning views of the city skyline at sunset.',
+        category: 'concert' as const,
+        time: '6:30 PM',
+        duration: '2 hours',
+        location: 'City Park',
+        price: { min: 0, max: 0, currency: 'USD', free: true },
+        organizer: 'City Parks & Recreation',
+        rating: 4.8,
+        reviewCount: 892,
+        capacity: 2000,
+        tags: ['Music', 'Free', 'Outdoor', 'Sunset'],
+        featured: true
       },
-      organizer: 'SF Parks & Recreation',
-      image: '/api/placeholder/400/250',
-      rating: 4.8,
-      reviewCount: 892,
-      capacity: 2000,
-      availableSpots: 1500,
-      tags: ['Music', 'Free', 'Outdoor', 'Sunset'],
-      website: 'https://sfparks.org',
-      ticketUrl: 'https://sfparks.org/events',
-      featured: true
-    },
-    {
-      id: 'event-3',
-      title: 'Contemporary Art Exhibition',
-      description: 'Exhibition featuring works from emerging Bay Area artists and international contemporary art.',
-      category: 'exhibition',
-      date: '2024-02-17',
-      time: '10:00 AM',
-      duration: '6 hours',
-      location: 'SFMOMA',
-      address: '151 3rd St, San Francisco, CA 94103',
-      coordinates: [37.7858, -122.4008],
-      price: {
-        min: 15,
-        max: 25,
-        currency: 'USD',
-        free: false
+      {
+        title: 'Contemporary Art Exhibition',
+        description: 'Exhibition featuring works from emerging local artists and international contemporary art.',
+        category: 'exhibition' as const,
+        time: '10:00 AM',
+        duration: '6 hours',
+        location: 'Art Museum',
+        price: { min: 15, max: 25, currency: 'USD', free: false },
+        organizer: 'Local Art Museum',
+        rating: 4.4,
+        reviewCount: 567,
+        capacity: 800,
+        tags: ['Art', 'Culture', 'Indoor', 'Educational'],
+        featured: false
       },
-      organizer: 'San Francisco Museum of Modern Art',
-      image: '/api/placeholder/400/250',
-      rating: 4.4,
-      reviewCount: 567,
-      capacity: 800,
-      availableSpots: 600,
-      tags: ['Art', 'Culture', 'Indoor', 'Educational'],
-      website: 'https://sfmoma.org',
-      ticketUrl: 'https://tickets.sfmoma.org',
-      featured: false
-    },
-    {
-      id: 'event-4',
-      title: 'Tech Startup Meetup',
-      description: 'Networking event for tech entrepreneurs and investors in the Bay Area startup scene.',
-      category: 'business',
-      date: '2024-02-18',
-      time: '7:00 PM',
-      duration: '3 hours',
-      location: 'WeWork SOMA',
-      address: '415 Mission St, San Francisco, CA 94105',
-      coordinates: [37.7897, -122.3972],
-      price: {
-        min: 20,
-        max: 50,
-        currency: 'USD',
-        free: false
+      {
+        title: 'Business Networking Meetup',
+        description: 'Networking event for entrepreneurs and professionals in the local business scene.',
+        category: 'business' as const,
+        time: '7:00 PM',
+        duration: '3 hours',
+        location: 'Business Center',
+        price: { min: 20, max: 50, currency: 'USD', free: false },
+        organizer: 'Local Business Network',
+        rating: 4.2,
+        reviewCount: 234,
+        capacity: 150,
+        tags: ['Networking', 'Business', 'Professional'],
+        featured: false
       },
-      organizer: 'SF Tech Network',
-      image: '/api/placeholder/400/250',
-      rating: 4.2,
-      reviewCount: 234,
-      capacity: 150,
-      availableSpots: 45,
-      tags: ['Networking', 'Tech', 'Business', 'Professional'],
-      website: 'https://sftechnetwork.com',
-      ticketUrl: 'https://tickets.sftechnetwork.com',
-      featured: false
-    },
-    {
-      id: 'event-5',
-      title: 'Alcatraz Night Tour',
-      description: 'Special evening tour of Alcatraz Island with spooky stories and historical insights.',
-      category: 'cultural',
-      date: '2024-02-19',
-      time: '5:30 PM',
-      duration: '3 hours',
-      location: 'Alcatraz Island',
-      address: 'Alcatraz Island, San Francisco, CA 94133',
-      coordinates: [37.8270, -122.4230],
-      price: {
-        min: 45,
-        max: 65,
-        currency: 'USD',
-        free: false
+      {
+        title: 'Cultural Heritage Tour',
+        description: 'Guided tour showcasing the rich cultural heritage and historical landmarks.',
+        category: 'cultural' as const,
+        time: '2:00 PM',
+        duration: '3 hours',
+        location: 'Historic District',
+        price: { min: 30, max: 50, currency: 'USD', free: false },
+        organizer: 'Heritage Society',
+        rating: 4.7,
+        reviewCount: 1892,
+        capacity: 300,
+        tags: ['History', 'Tour', 'Cultural', 'Educational'],
+        featured: true
       },
-      organizer: 'National Park Service',
-      image: '/api/placeholder/400/250',
-      rating: 4.7,
-      reviewCount: 1892,
-      capacity: 300,
-      availableSpots: 89,
-      tags: ['History', 'Tour', 'Night', 'Unique'],
-      website: 'https://nps.gov/alcatraz',
-      ticketUrl: 'https://alcatrazcruises.com',
-      featured: true
+      {
+        title: 'Family Fun Day',
+        description: 'A day full of activities for the whole family including games, crafts, and entertainment.',
+        category: 'family' as const,
+        time: '10:00 AM',
+        duration: '6 hours',
+        location: 'Community Center',
+        price: { min: 10, max: 25, currency: 'USD', free: false },
+        organizer: 'Community Events',
+        rating: 4.5,
+        reviewCount: 456,
+        capacity: 1000,
+        tags: ['Family', 'Kids', 'Activities', 'Fun'],
+        featured: false
+      }
+    ]
+    
+    // Generate events for each day of travel
+    const currentDate = new Date(start)
+    let eventId = 1
+    
+    while (currentDate <= end) {
+      // Randomly select 1-3 events per day
+      const eventsPerDay = Math.floor(Math.random() * 3) + 1
+      const selectedTemplates = eventTemplates
+        .sort(() => 0.5 - Math.random())
+        .slice(0, eventsPerDay)
+      
+      selectedTemplates.forEach(template => {
+        const eventDate = new Date(currentDate)
+        const availableSpots = Math.floor(Math.random() * template.capacity * 0.8) + Math.floor(template.capacity * 0.2)
+        
+        events.push({
+          id: `event-${eventId++}`,
+          ...template,
+          date: eventDate.toISOString().split('T')[0],
+          address: `${template.location}, ${destination}`,
+          coordinates: [37.7749 + (Math.random() - 0.5) * 0.1, -122.4194 + (Math.random() - 0.5) * 0.1], // Approximate SF coordinates with variation
+          availableSpots,
+          image: '/api/placeholder/400/250',
+          website: `https://${template.organizer.toLowerCase().replace(/\s+/g, '')}.com`,
+          ticketUrl: `https://tickets.${template.organizer.toLowerCase().replace(/\s+/g, '')}.com`
+        })
+      })
+      
+      currentDate.setDate(currentDate.getDate() + 1)
     }
-  ]
+    
+    return events
+  }
+
+  // Mock events data - now generated based on travel dates
+  const mockEvents: LocalEvent[] = generateEventsForTravelDates(startDate, endDate, destination)
 
   useEffect(() => {
-    setEvents(mockEvents)
-    setFilteredEvents(mockEvents)
-  }, [])
+    const generatedEvents = generateEventsForTravelDates(startDate, endDate, destination)
+    setEvents(generatedEvents)
+    setFilteredEvents(generatedEvents)
+  }, [startDate, endDate, destination])
 
   useEffect(() => {
     let filtered = events
+
+    // Filter by travel dates - only show events that fall within the user's travel period
+    const travelStartDate = new Date(startDate)
+    const travelEndDate = new Date(endDate)
+    
+    filtered = filtered.filter(event => {
+      const eventDate = new Date(event.date)
+      return eventDate >= travelStartDate && eventDate <= travelEndDate
+    })
 
     // Filter by category
     if (filters.category !== 'all') {
@@ -234,7 +239,7 @@ export default function LocalEventsCalendar({
     }
 
     setFilteredEvents(filtered)
-  }, [events, filters])
+  }, [events, filters, startDate, endDate])
 
   const handleFavorite = (eventId: string) => {
     setFavorites(prev => 
@@ -423,13 +428,109 @@ export default function LocalEventsCalendar({
     { value: 'family', label: 'Family' }
   ]
 
+  if (compact) {
+    return (
+      <div className="space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Local Events</h3>
+            <p className="text-sm text-gray-600">
+              {filteredEvents.length} events during your stay
+            </p>
+          </div>
+        </div>
+
+        {/* Compact Search */}
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search events..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              value={filters.searchQuery}
+              onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+            />
+          </div>
+          <select
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            value={filters.category}
+            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+          >
+            {categories.map(category => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Compact Events List */}
+        <div className="space-y-3">
+          {filteredEvents.length > 0 ? (
+            filteredEvents.slice(0, 5).map(event => (
+              <div key={event.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className={getCategoryColor(event.category)}>
+                        {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                      </Badge>
+                      {event.featured && (
+                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">Featured</Badge>
+                      )}
+                    </div>
+                    <h4 className="font-medium text-gray-900 text-sm">{event.title}</h4>
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{event.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                      <span>{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <span>{event.time}</span>
+                      <span>{event.location}</span>
+                    </div>
+                  </div>
+                  <div className="text-right ml-3">
+                    <div className="text-sm font-semibold text-green-600">
+                      {formatPrice(event.price)}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="mt-2 text-xs"
+                      onClick={() => handleBookEvent(event)}
+                      disabled={event.availableSpots === 0}
+                    >
+                      {event.availableSpots === 0 ? 'Sold Out' : 'Book'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-6">
+              <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">No events found for your dates</p>
+            </div>
+          )}
+        </div>
+
+        {filteredEvents.length > 5 && (
+          <div className="text-center">
+            <Button variant="outline" size="sm">
+              View All {filteredEvents.length} Events
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Local Events Calendar</h2>
           <p className="text-gray-600">
-            Discover exciting events happening in {destination} during your stay
+            Discover exciting events happening in {destination} from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
           </p>
         </div>
         <div className="flex gap-2">
@@ -495,7 +596,7 @@ export default function LocalEventsCalendar({
             <div>
               <h3 className="font-semibold text-purple-900">Event Summary</h3>
               <p className="text-sm text-purple-700">
-                {filteredEvents.length} events found for your dates
+                {filteredEvents.length} events found during your travel dates ({new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()})
               </p>
             </div>
             <Button className="bg-purple-600 hover:bg-purple-700">

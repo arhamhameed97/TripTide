@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ExternalLink, MapPin, Plane, Hotel, Car, Train, DollarSign, Calculator } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ExternalLink, MapPin, Plane, Hotel, Car, Train, DollarSign, Calculator, Calendar } from 'lucide-react'
+import ItineraryCalendar from './ItineraryCalendar'
 
 interface HourlyActivity {
   hour: string
@@ -40,10 +43,24 @@ interface ItineraryTableProps {
     departureLocation: string
     destination: string
     days: number
+    startDate: string
+    endDate: string
   }
+  onItineraryUpdate?: (updatedItinerary: ItineraryDay[]) => void
 }
 
-export default function ItineraryTable({ itinerary, tripData }: ItineraryTableProps) {
+export default function ItineraryTable({ itinerary, tripData, onItineraryUpdate }: ItineraryTableProps) {
+  const [activeView, setActiveView] = useState<'table' | 'calendar'>('table')
+  const [localItinerary, setLocalItinerary] = useState<ItineraryDay[]>(itinerary)
+
+  // Handle itinerary updates from calendar
+  const handleItineraryUpdate = (updatedItinerary: ItineraryDay[]) => {
+    setLocalItinerary(updatedItinerary)
+    if (onItineraryUpdate) {
+      onItineraryUpdate(updatedItinerary)
+    }
+  }
+
   // Calculate total costs with proper error handling
   const calculateTotalCosts = () => {
     let activitiesCost = 0
@@ -52,8 +69,8 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
     let transportCost = 0
 
     // Safely calculate activities cost
-    if (itinerary && Array.isArray(itinerary)) {
-      itinerary.forEach(day => {
+    if (localItinerary && Array.isArray(localItinerary)) {
+      localItinerary.forEach(day => {
         if (day && day.hourlyActivities && Array.isArray(day.hourlyActivities)) {
           day.hourlyActivities.forEach(activity => {
             if (activity && activity.estimatedCost) {
@@ -65,7 +82,7 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
       })
 
       // Safely calculate accommodation cost
-      itinerary.forEach(day => {
+      localItinerary.forEach(day => {
         if (day && day.hotel && day.hotel.price) {
           const cost = parseFloat(day.hotel.price.replace(/[^0-9.-]+/g, '')) || 0
           accommodationCost += cost
@@ -73,13 +90,13 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
       })
 
       // Safely calculate flight cost
-      if (itinerary[0] && itinerary[0].flight && itinerary[0].flight.price) {
-        const cost = parseFloat(itinerary[0].flight.price.replace(/[^0-9.-]+/g, '')) || 0
+      if (localItinerary[0] && localItinerary[0].flight && localItinerary[0].flight.price) {
+        const cost = parseFloat(localItinerary[0].flight.price.replace(/[^0-9.-]+/g, '')) || 0
         flightCost = cost
       }
 
       // Calculate transport cost (estimate based on days)
-      const days = itinerary.length
+      const days = localItinerary.length
       transportCost = days * 25 // Rough estimate of $25 per day for local transport
     }
 
@@ -95,7 +112,7 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
   const totalCosts = calculateTotalCosts()
 
   // Check if itinerary data is valid
-  if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) {
+  if (!localItinerary || !Array.isArray(localItinerary) || localItinerary.length === 0) {
     return (
       <div className="space-y-6">
         <Card className="bg-gradient-to-r from-primary to-primary/80 text-white">
@@ -140,17 +157,30 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
         </CardHeader>
       </Card>
 
-      {/* Itinerary Table */}
+      {/* Itinerary Display with Tabs */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-semibold">Hourly Itinerary</CardTitle>
           <CardDescription>
-            Detailed hourly schedule with activities, locations, and estimated costs
+            View your itinerary in table format or drag-and-drop calendar view
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {itinerary.map((day) => {
+          <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'table' | 'calendar')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="table" className="flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Table View
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Calendar View
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="table" className="space-y-6">
+              <div className="space-y-6">
+                {localItinerary.map((day) => {
               // Check if day data is valid
               if (!day || !day.hourlyActivities || !Array.isArray(day.hourlyActivities)) {
                 return (
@@ -242,7 +272,17 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
                 </div>
               )
             })}
-          </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="calendar">
+              <ItineraryCalendar 
+                itinerary={localItinerary} 
+                tripData={tripData}
+                onItineraryUpdate={handleItineraryUpdate}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -257,18 +297,18 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {itinerary[0]?.hotel ? (
+            {localItinerary[0]?.hotel ? (
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-medium">{itinerary[0].hotel.name}</h4>
+                  <h4 className="font-medium">{localItinerary[0].hotel.name}</h4>
                   <p className="text-sm text-muted-foreground">
-                    {itinerary[0].hotel.price ? `$${itinerary[0].hotel.price}/night` : 'Price not available'}
+                    {localItinerary[0].hotel.price ? `$${localItinerary[0].hotel.price}/night` : 'Price not available'}
                   </p>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => itinerary[0]?.hotel?.link && window.open(itinerary[0].hotel.link, '_blank')}
+                  onClick={() => localItinerary[0]?.hotel?.link && window.open(localItinerary[0].hotel.link, '_blank')}
                 >
                   View Details <ExternalLink className="w-3 h-3 ml-1" />
                 </Button>
@@ -288,18 +328,18 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {itinerary[0]?.flight ? (
+            {localItinerary[0]?.flight ? (
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-medium">{itinerary[0].flight.airline}</h4>
+                  <h4 className="font-medium">{localItinerary[0].flight.airline}</h4>
                   <p className="text-sm text-muted-foreground">
-                    {itinerary[0].flight.price ? `$${itinerary[0].flight.price}` : 'Price not available'}
+                    {localItinerary[0].flight.price ? `$${localItinerary[0].flight.price}` : 'Price not available'}
                   </p>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => itinerary[0]?.flight?.link && window.open(itinerary[0].flight.link, '_blank')}
+                  onClick={() => localItinerary[0]?.flight?.link && window.open(localItinerary[0].flight.link, '_blank')}
                 >
                   Book Flight <ExternalLink className="w-3 h-3 ml-1" />
                 </Button>
@@ -374,7 +414,7 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
                 <tr className="hover:bg-muted/30">
                   <td className="border border-border px-4 py-3 font-medium">Accommodation</td>
                   <td className="border border-border px-4 py-3 text-sm text-muted-foreground">
-                    {tripData.days} nights at {itinerary[0]?.hotel?.name || 'selected accommodation'}
+                    {tripData.days} nights at {localItinerary[0]?.hotel?.name || 'selected accommodation'}
                   </td>
                   <td className="border border-border px-4 py-3 text-right font-medium text-green-600">
                     ${totalCosts.accommodation.toFixed(2)}
@@ -418,23 +458,6 @@ export default function ItineraryTable({ itinerary, tripData }: ItineraryTablePr
           </div>
         </CardContent>
       </Card>
-
-      {/* Action Buttons */}
-      <div className="flex justify-center space-x-4">
-        <Button
-          variant="outline"
-          onClick={() => window.print()}
-          className="print:hidden"
-        >
-          Print Itinerary
-        </Button>
-        <Button
-          onClick={() => window.location.href = '/'}
-          className="print:hidden"
-        >
-          Plan Another Trip
-        </Button>
-      </div>
     </div>
   )
 }

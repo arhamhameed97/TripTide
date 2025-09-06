@@ -5,12 +5,10 @@ import { useRouter } from 'next/navigation'
 import ItineraryTable from '@/components/ItineraryTable'
 import ComprehensiveBudgetSummary from '@/components/ComprehensiveBudgetSummary'
 import BudgetValidationDisplay from '@/components/BudgetValidationDisplay'
-import WeatherForecast from '@/components/WeatherForecast'
-import LocalNews from '@/components/LocalNews'
+import WeatherAndNews from '@/components/WeatherAndNews'
 import AccommodationPanel from '@/components/AccommodationPanel'
 import TripMap from '@/components/TripMap'
-import BookingIntegration from '@/components/BookingIntegration'
-import LocalEventsCalendar from '@/components/LocalEventsCalendar'
+import TravelServicesTabs from '@/components/TravelServicesTabs'
 import AnalyticsDashboard from '@/components/AnalyticsDashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -397,6 +395,11 @@ export default function ResultsPage() {
           </Card>
         )}
 
+        {/* Weather Forecast and Local News - Combined */}
+        <div className="mb-6">
+          <WeatherAndNews weather={weatherData} news={newsData} />
+        </div>
+
         {/* Budget Validation Display */}
         <div className="mb-6">
           {(() => {
@@ -469,87 +472,97 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Weather Forecast */}
+        {/* Hourly Itinerary Display - Moved right after budget summary */}
+        <div className="mb-6">
+          <ItineraryTable 
+            itinerary={itinerary} 
+            tripData={tripData}
+            onItineraryUpdate={(updatedItinerary) => {
+              setItinerary(updatedItinerary)
+              // Update localStorage with the new itinerary
+              localStorage.setItem('itinerary', JSON.stringify(updatedItinerary))
+            }}
+          />
+        </div>
+
+        {/* Trip Map - Moved right after hourly itinerary */}
+        <div className="mb-6">
+          <TripMap itinerary={itinerary} tripData={tripData} />
+        </div>
+
+        {/* Accommodation Panel */}
         <div className="mb-6">
           {(() => {
-            // Debug logging for weather data
-            console.log('Results Page Weather Debug:', {
-              weatherData,
-              hasWeatherData: !!weatherData,
-              weatherDataType: typeof weatherData,
-              weatherDataKeys: weatherData ? Object.keys(weatherData) : null
-            })
+            // Extract unique hotels from itinerary
+            const uniqueHotels = itinerary
+              .filter(day => day.hotel)
+              .map(day => day.hotel)
+              .filter((hotel): hotel is NonNullable<typeof hotel> => hotel !== undefined)
+              .filter((hotel, index, self) => 
+                self.findIndex(h => h.name === hotel.name) === index
+              )
             
-            return <WeatherForecast weather={weatherData} />
+            return (
+              <AccommodationPanel
+                hotels={uniqueHotels}
+                days={unifiedBudgetData.days}
+                totalBudget={unifiedBudgetData.totalBudget}
+                actualAccommodationCost={unifiedBudgetData.accommodationCost}
+                totalActualCost={unifiedBudgetData.totalActualCost}
+              />
+            )
           })()}
         </div>
 
-                            {/* Local News */}
-                    <div className="mb-6">
-                      <LocalNews news={newsData} />
-                    </div>
+        {/* Travel Services - Events & Booking */}
+        <div className="mb-6">
+          <TravelServicesTabs
+            destination={tripData.destination}
+            startDate={tripData.startDate}
+            endDate={tripData.endDate}
+            travelers={2}
+            budget={tripData.totalBudget}
+            departureLocation={tripData.departureLocation}
+            interests={tripData.activities}
+          />
+        </div>
 
-                    {/* Accommodation Panel */}
-                    <div className="mb-6">
-                      {(() => {
-                        // Extract unique hotels from itinerary
-                                      const uniqueHotels = itinerary
-                .filter(day => day.hotel)
-                .map(day => day.hotel)
-                .filter((hotel): hotel is NonNullable<typeof hotel> => hotel !== undefined)
-                .filter((hotel, index, self) => 
-                  self.findIndex(h => h.name === hotel.name) === index
-                )
-                        
-                        return (
-                          <AccommodationPanel
-                            hotels={uniqueHotels}
-                            days={unifiedBudgetData.days}
-                            totalBudget={unifiedBudgetData.totalBudget}
-                            actualAccommodationCost={unifiedBudgetData.accommodationCost}
-                            totalActualCost={unifiedBudgetData.totalActualCost}
-                          />
-                        )
-                      })()}
-                                          </div>
+        {/* Analytics Dashboard */}
+        <div className="mb-6">
+          <AnalyticsDashboard
+            userId="user123"
+            currentTripData={tripData}
+          />
+        </div>
 
-                      {/* Trip Map */}
-                      <div className="mb-6">
-                        <TripMap itinerary={itinerary} tripData={tripData} />
-                      </div>
-
-                      {/* Booking Integration */}
-                      <div className="mb-6">
-                        <BookingIntegration
-                          destination={tripData.destination}
-                          startDate={tripData.startDate}
-                          endDate={tripData.endDate}
-                          travelers={2}
-                          budget={tripData.totalBudget}
-                          departureLocation={tripData.departureLocation}
-                        />
-                      </div>
-
-                      {/* Local Events Calendar */}
-                      <div className="mb-6">
-                        <LocalEventsCalendar
-                          destination={tripData.destination}
-                          startDate={tripData.startDate}
-                          endDate={tripData.endDate}
-                          interests={tripData.activities}
-                        />
-                      </div>
-
-                      {/* Analytics Dashboard */}
-                      <div className="mb-6">
-                        <AnalyticsDashboard
-                          userId="user123"
-                          currentTripData={tripData}
-                        />
-                      </div>
-
-          {/* Itinerary Display */}
-          <ItineraryTable itinerary={itinerary} tripData={tripData} />
+        {/* Action Buttons - Print and Plan Another Trip */}
+        <div className="mt-12 mb-6">
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Button 
+                  variant="outline" 
+                  className="w-full sm:w-auto bg-white border-gray-300 hover:bg-gray-50"
+                  onClick={() => window.print()}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  Print Itinerary
+                </Button>
+                <Button 
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push('/')}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Plan Another Trip
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </main>
   )
