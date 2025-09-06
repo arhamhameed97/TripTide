@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       pickupDate, 
       returnDate, 
       pickupLocation, 
-      returnLocation, 
+      returnLocation || pickupLocation, 
       drivers, 
       budget
     )
