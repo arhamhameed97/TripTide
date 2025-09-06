@@ -1,6 +1,8 @@
-# 🚀 TripTide - AI-Powered Travel Planning App
+# 🌍 Wanderlust - AI-Powered Travel Planning & Booking Platform
 
-A comprehensive, AI-driven travel planning application that helps users create personalized itineraries with intelligent budget management and cost tracking.
+**Transform your travel dreams into reality with AI-powered itineraries and automatic bookings**
+
+Wanderlust is a comprehensive, AI-driven travel planning application that helps users create personalized itineraries with intelligent budget management, automatic booking capabilities, and real-time travel information.
 
 ## ✨ Features
 
@@ -17,6 +19,14 @@ A comprehensive, AI-driven travel planning application that helps users create p
 - **Real-time Updates**: Instant form updates with visual notifications
 - **Contextual Help**: Understands current form state and provides relevant suggestions
 - **Fallback Mode**: Works even without API keys for testing and development
+
+### 🎫 **Automatic Booking System**
+- **One-Click Booking**: Complete automatic booking for flights, hotels, activities, and car rentals
+- **Payment Processing**: Integrated Stripe and PayPal payment systems
+- **Real-time Availability**: Live pricing and availability from major providers
+- **Booking Confirmation**: Instant confirmations with email notifications
+- **Error Handling**: Automatic refunds if booking fails
+- **Multiple Providers**: Integration with Amadeus, Booking.com, Viator, and major car rental companies
 
 ### 🌙 **Dark Theme Support**
 - **Theme Toggle**: Beautiful dark/light theme switcher in top-left corner
@@ -147,7 +157,7 @@ A comprehensive, AI-driven travel planning application that helps users create p
 ## 📁 Project Structure
 
 ```
-TripTide/
+Wanderlust/
 ├── app/                          # Next.js 13+ app directory
 │   ├── api/                     # API routes
 │   │   ├── chatbot/             # AI chatbot endpoint

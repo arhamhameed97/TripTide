@@ -6,8 +6,8 @@ import { ThemeProvider } from '@/lib/theme'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Travel Planning App',
-  description: 'Plan your perfect trip with AI-powered itineraries',
+  title: 'Wanderlust - AI-Powered Travel Planning',
+  description: 'Plan your perfect trip with AI-powered itineraries, automatic bookings, and personalized recommendations',
 }
 
 export default function RootLayout({
