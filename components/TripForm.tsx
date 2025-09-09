@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User, Zap } from 'lucide-react'
+import { Calendar, CalendarDays, Plane, MapPin, Loader2, DollarSign, Calculator, Info, User, Zap, ChevronDown, ChevronRight, Settings, Heart, Shield, Clock, Users } from 'lucide-react'
 
 interface FormData {
   name: string
@@ -69,6 +69,12 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
   const [budgetRecommendations, setBudgetRecommendations] = useState<BudgetRecommendations | null>(null)
   const [tripDuration, setTripDuration] = useState(0)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
+  const [expandedSections, setExpandedSections] = useState({
+    basic: true,
+    budget: false,
+    preferences: false,
+    advanced: false
+  })
 
   // Template data for quick testing - Updated for NY to SF trip (2 days)
   const templateData: FormData = {
@@ -93,6 +99,24 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
 
   const handleAutofill = () => {
     setFormData(templateData)
+  }
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
+  // Detect if chatbot has already set preferences to avoid duplication
+  const hasChatbotPreferences = () => {
+    return formData.personalPreferences.travelStyle.length > 0 ||
+           formData.personalPreferences.interests.length > 0 ||
+           formData.personalPreferences.dietaryRestrictions.length > 0 ||
+           formData.personalPreferences.accessibility.length > 0 ||
+           formData.personalPreferences.pace !== '' ||
+           formData.personalPreferences.groupSize !== '' ||
+           formData.personalPreferences.specialRequirements !== ''
   }
 
   // Calculate budget recommendations when total budget or trip duration changes
@@ -327,7 +351,7 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="max-w-4xl mx-auto">
       {/* Update Notification */}
       {showUpdateNotification && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-right">
@@ -340,375 +364,465 @@ export default function TripForm({ onPreferencesUpdate, currentFormData }: TripF
         </div>
       )}
 
-      {/* Autofill Template Button */}
-      <div className="flex justify-center mb-6">
-        <Button
-          type="button"
-          onClick={handleAutofill}
-          variant="outline"
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-700 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-800/30 dark:hover:to-purple-800/30"
-        >
-          <Zap className="w-4 h-4" />
-          Quick Fill Template (NY → SF)
-        </Button>
-      </div>
-
-      {/* Name */}
-      <div className="space-y-2">
-        <Label htmlFor="name">Traveler Name</Label>
-        <Input
-          id="name"
-          type="text"
-          placeholder="Enter your full name"
-          value={formData.name}
-          onChange={(e) => handleInputChange('name', e.target.value)}
-          required
-        />
-      </div>
-
-      {/* Travel Dates */}
-      <div className="space-y-4">
-        <Label className="text-base font-medium flex items-center gap-2">
-          <CalendarDays className="w-5 h-5" />
-          Travel Dates
-        </Label>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="startDate">Start Date</Label>
-            <Input
-              id="startDate"
-              type="date"
-              min={getMinStartDate()}
-              max={getMaxStartDate()}
-              value={formData.startDate}
-              onChange={(e) => handleInputChange('startDate', e.target.value)}
-              required
-              className="cursor-pointer"
-            />
+      {/* Quick Start Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-xl border border-blue-200 dark:border-blue-700 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Quick Start</h2>
+            <p className="text-gray-600 dark:text-gray-300">Fill out basic details or use our template to get started quickly</p>
           </div>
+          <Button
+            type="button"
+            onClick={handleAutofill}
+            variant="outline"
+            className="flex items-center gap-2 bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          >
+            <Zap className="w-4 h-4" />
+            Quick Fill Template
+          </Button>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('basic')}
+            className="w-full px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/30 dark:hover:to-indigo-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+            </div>
+            {expandedSections.basic ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </button>
           
-          <div className="space-y-2">
-            <Label htmlFor="endDate">End Date</Label>
-            <Input
-              id="endDate"
-              type="date"
-              min={getMinEndDate()}
-              max={getMaxStartDate()}
-              value={formData.endDate}
-              onChange={(e) => handleInputChange('endDate', e.target.value)}
-              required
-              className="cursor-pointer"
-            />
-          </div>
-        </div>
-        
-        {formData.startDate && formData.endDate && (
-          <div className="text-sm text-muted-foreground bg-muted/50 dark:bg-gray-800/50 p-3 rounded-lg">
-            <Calendar className="w-4 h-4 inline mr-2" />
-            Trip Duration: {tripDuration} day{tripDuration > 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
+          {expandedSections.basic && (
+            <div className="p-6 space-y-6">
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Traveler Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  required
+                />
+              </div>
 
-      {/* Total Trip Budget - NEW SECTION */}
-      <div className="space-y-4">
-        <Label className="text-base font-medium flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
-          Total Trip Budget
-        </Label>
-        
-        <div className="space-y-2">
-          <Label htmlFor="totalBudget">What's your total budget for the entire trip?</Label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-            <Input
-              id="totalBudget"
-              type="number"
-              min="100"
-              step="50"
-              placeholder="e.g., 1500"
-              value={formData.totalBudget || ''}
-              onChange={(e) => handleInputChange('totalBudget', Number(e.target.value))}
-              className="pl-8"
-              required
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Enter your total budget for the entire trip (not per day)
-          </p>
-        </div>
+              {/* Travel Dates */}
+              <div className="space-y-4">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5" />
+                  Travel Dates
+                </Label>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      min={getMinStartDate()}
+                      max={getMaxStartDate()}
+                      value={formData.startDate}
+                      onChange={(e) => handleInputChange('startDate', e.target.value)}
+                      required
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      min={getMinEndDate()}
+                      max={getMaxStartDate()}
+                      value={formData.endDate}
+                      onChange={(e) => handleInputChange('endDate', e.target.value)}
+                      required
+                      className="cursor-pointer"
+                    />
+                  </div>
+                </div>
+                
+                {formData.startDate && formData.endDate && (
+                  <div className="text-sm text-muted-foreground bg-muted/50 dark:bg-gray-800/50 p-3 rounded-lg">
+                    <Calendar className="w-4 h-4 inline mr-2" />
+                    Trip Duration: {tripDuration} day{tripDuration > 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
 
-        {/* Budget Breakdown - NEW SECTION */}
-        {budgetRecommendations && (
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
-            <div className="flex items-center gap-2 mb-3">
-              <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="font-medium text-blue-800 dark:text-blue-200">Budget Breakdown</span>
+              {/* Departure Location */}
+              <div className="space-y-2">
+                <Label htmlFor="departureLocation" className="flex items-center gap-2">
+                  <Plane className="w-4 h-4" />
+                  Departure Location
+                </Label>
+                <Input
+                  id="departureLocation"
+                  type="text"
+                  placeholder="e.g., New York, NY or London, UK"
+                  value={formData.departureLocation}
+                  onChange={(e) => handleInputChange('departureLocation', e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Destination */}
+              <div className="space-y-2">
+                <Label htmlFor="destination" className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Destination
+                </Label>
+                <Input
+                  id="destination"
+                  type="text"
+                  placeholder="e.g., Paris, France or Tokyo, Japan"
+                  value={formData.destination}
+                  onChange={(e) => handleInputChange('destination', e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-green-700 dark:text-green-400">Daily Budget</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.dailyBudget.toFixed(0)}</div>
+          )}
+        </div>
+
+        {/* Budget Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('budget')}
+            className="w-full px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-800/30 dark:hover:to-emerald-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Budget & Accommodation</h3>
+            </div>
+            {expandedSections.budget ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </button>
+          
+          {expandedSections.budget && (
+            <div className="p-6 space-y-6">
+              {/* Total Trip Budget */}
+              <div className="space-y-2">
+                <Label htmlFor="totalBudget">What's your total budget for the entire trip?</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                  <Input
+                    id="totalBudget"
+                    type="number"
+                    min="100"
+                    step="50"
+                    placeholder="e.g., 1500"
+                    value={formData.totalBudget || ''}
+                    onChange={(e) => handleInputChange('totalBudget', Number(e.target.value))}
+                    className="pl-8"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter your total budget for the entire trip (not per day)
+                </p>
               </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-blue-700 dark:text-blue-400">Accommodation</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.accommodationBudget.toFixed(0)}/day</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-purple-700 dark:text-purple-400">Food</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.foodBudget.toFixed(0)}/day</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-orange-700 dark:text-orange-400">Activities</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.activityBudget.toFixed(0)}/day</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-red-700 dark:text-red-400">Transport</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.transportBudget.toFixed(0)}/day</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                <div className="font-medium text-gray-700 dark:text-gray-400">Shopping</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
+
+              {/* Budget Breakdown */}
+              {budgetRecommendations && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calculator className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="font-medium text-green-800 dark:text-green-200">Budget Breakdown</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-green-700 dark:text-green-400">Daily Budget</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.dailyBudget.toFixed(0)}</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-blue-700 dark:text-blue-400">Accommodation</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.accommodationBudget.toFixed(0)}/day</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-purple-700 dark:text-purple-400">Food</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.foodBudget.toFixed(0)}/day</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-orange-700 dark:text-orange-400">Activities</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.activityBudget.toFixed(0)}/day</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-red-700 dark:text-red-400">Transport</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.transportBudget.toFixed(0)}/day</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                      <div className="font-medium text-gray-700 dark:text-gray-400">Shopping</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">${budgetRecommendations.shoppingBudget.toFixed(0)}/day</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Accommodation Preferences */}
+              <div className="space-y-2">
+                <Label htmlFor="accommodations">Accommodation Type</Label>
+                {budgetRecommendations && (
+                  <p className="text-xs text-muted-foreground">
+                    Recommended for your budget: {budgetRecommendations.accommodations.join(', ')}
+                  </p>
+                )}
+                <Select
+                  value={formData.accommodations}
+                  onValueChange={(value) => handleInputChange('accommodations', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select accommodation type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hostel">Hostel (Budget)</SelectItem>
+                    <SelectItem value="budget-hotel">Budget Hotel</SelectItem>
+                    <SelectItem value="guesthouse">Guesthouse</SelectItem>
+                    <SelectItem value="hotel">Standard Hotel</SelectItem>
+                    <SelectItem value="apartment">Apartment</SelectItem>
+                    <SelectItem value="bed-and-breakfast">Bed & Breakfast</SelectItem>
+                    <SelectItem value="resort">Resort</SelectItem>
+                    <SelectItem value="luxury-hotel">Luxury Hotel</SelectItem>
+                    <SelectItem value="boutique-hotel">Boutique Hotel</SelectItem>
+                    <SelectItem value="villa">Private Villa</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Departure Location */}
-      <div className="space-y-2">
-        <Label htmlFor="departureLocation" className="flex items-center gap-2">
-          <Plane className="w-4 h-4" />
-          Departure Location
-        </Label>
-        <Input
-          id="departureLocation"
-          type="text"
-          placeholder="e.g., New York, NY or London, UK"
-          value={formData.departureLocation}
-          onChange={(e) => handleInputChange('departureLocation', e.target.value)}
-          required
-        />
-      </div>
-
-      {/* Destination */}
-      <div className="space-y-2">
-        <Label htmlFor="destination" className="flex items-center gap-2">
-          <MapPin className="w-4 h-4" />
-          Destination
-        </Label>
-        <Input
-          id="destination"
-          type="text"
-          placeholder="e.g., Paris, France or Tokyo, Japan"
-          value={formData.destination}
-          onChange={(e) => handleInputChange('destination', e.target.value)}
-          required
-        />
-      </div>
-
-      {/* Accommodation Preferences - Enhanced with budget recommendations */}
-      <div className="space-y-2">
-        <Label htmlFor="accommodations">Accommodation Type</Label>
-        {budgetRecommendations && (
-          <p className="text-xs text-muted-foreground">
-            Recommended for your budget: {budgetRecommendations.accommodations.join(', ')}
-          </p>
-        )}
-        <Select
-          value={formData.accommodations}
-          onValueChange={(value) => handleInputChange('accommodations', value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select accommodation type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="hostel">Hostel (Budget)</SelectItem>
-            <SelectItem value="budget-hotel">Budget Hotel</SelectItem>
-            <SelectItem value="guesthouse">Guesthouse</SelectItem>
-            <SelectItem value="hotel">Standard Hotel</SelectItem>
-            <SelectItem value="apartment">Apartment</SelectItem>
-            <SelectItem value="bed-and-breakfast">Bed & Breakfast</SelectItem>
-            <SelectItem value="resort">Resort</SelectItem>
-            <SelectItem value="luxury-hotel">Luxury Hotel</SelectItem>
-            <SelectItem value="boutique-hotel">Boutique Hotel</SelectItem>
-            <SelectItem value="villa">Private Villa</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Activity Preferences - Enhanced with budget recommendations */}
-      <div className="space-y-2">
-        <Label>Activity Preferences</Label>
-        {budgetRecommendations && (
-          <p className="text-xs text-muted-foreground">
-            Recommended for your budget: {budgetRecommendations.activities.join(', ')}
-          </p>
-        )}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            'beach', 'mountains', 'city', 'culture', 'food', 'adventure',
-            'shopping', 'nature', 'history', 'art', 'music', 'sports',
-            'luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness'
-          ].map((activity) => (
-            <label key={activity} className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.activities.includes(activity)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    handleInputChange('activities', [...formData.activities, activity])
-                  } else {
-                    handleInputChange('activities', formData.activities.filter(a => a !== activity))
-                  }
-                }}
-                                 className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-primary"
-              />
-              <span className="text-sm capitalize">{activity.replace('-', ' ')}</span>
-            </label>
-          ))}
+          )}
         </div>
-      </div>
 
-      {/* Personal Preferences Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <User className="w-5 h-5 text-primary" />
-          <Label className="text-lg font-semibold">Personal Preferences</Label>
+        {/* Activity Preferences Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('preferences')}
+            className="w-full px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between hover:from-purple-100 hover:to-pink-100 dark:hover:from-purple-800/30 dark:hover:to-pink-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Heart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Activity Preferences</h3>
+            </div>
+            {expandedSections.preferences ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </button>
+          
+          {expandedSections.preferences && (
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <Label>What activities interest you?</Label>
+                {budgetRecommendations && (
+                  <p className="text-xs text-muted-foreground">
+                    Recommended for your budget: {budgetRecommendations.activities.join(', ')}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    'beach', 'mountains', 'city', 'culture', 'food', 'adventure',
+                    'shopping', 'nature', 'history', 'art', 'music', 'sports',
+                    'luxury-experiences', 'fine-dining', 'exclusive-tours', 'spa-wellness'
+                  ].map((activity) => (
+                    <label key={activity} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.activities.includes(activity)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            handleInputChange('activities', [...formData.activities, activity])
+                          } else {
+                            handleInputChange('activities', formData.activities.filter(a => a !== activity))
+                          }
+                        }}
+                        className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-primary"
+                      />
+                      <span className="text-sm capitalize">{activity.replace('-', ' ')}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        
-        {/* Travel Style */}
-        <div className="space-y-2">
-          <Label>Travel Style</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {['Adventure', 'Relaxation', 'Cultural', 'Luxury', 'Budget-friendly', 'Family-friendly', 'Solo travel', 'Group travel', 'Business', 'Romantic'].map((style) => (
-              <label key={style} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.personalPreferences.travelStyle.includes(style)}
-                  onChange={(e) => handlePreferenceChange('travelStyle', style, e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
+
+        {/* Advanced Preferences Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('advanced')}
+            className="w-full px-6 py-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between hover:from-orange-100 hover:to-red-100 dark:hover:from-orange-800/30 dark:hover:to-red-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Advanced Preferences</h3>
+              {hasChatbotPreferences() && (
+                <span className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  AI Updated
+                </span>
+              )}
+            </div>
+            {expandedSections.advanced ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </button>
+          
+          {expandedSections.advanced && (
+            <div className="p-6 space-y-6">
+              {hasChatbotPreferences() && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <Shield className="w-4 h-4" />
+                    <span className="text-sm font-medium">AI Assistant has already configured your preferences!</span>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                    You can still modify these settings if needed, or continue with the AI-recommended preferences.
+                  </p>
+                </div>
+              )}
+
+              {/* Travel Style */}
+              <div className="space-y-2">
+                <Label>Travel Style</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {['Adventure', 'Relaxation', 'Cultural', 'Luxury', 'Budget-friendly', 'Family-friendly', 'Solo travel', 'Group travel', 'Business', 'Romantic'].map((style) => (
+                    <label key={style} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.personalPreferences.travelStyle.includes(style)}
+                        onChange={(e) => handlePreferenceChange('travelStyle', style, e.target.checked)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">{style}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Interests */}
+              <div className="space-y-2">
+                <Label>Interests & Activities</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {['Museums', 'Nature', 'Shopping', 'Food & Dining', 'History', 'Art', 'Music', 'Sports', 'Photography', 'Nightlife', 'Wellness', 'Technology'].map((interest) => (
+                    <label key={interest} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.personalPreferences.interests.includes(interest)}
+                        onChange={(e) => handlePreferenceChange('interests', interest, e.target.checked)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">{interest}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dietary Restrictions */}
+              <div className="space-y-2">
+                <Label>Dietary Preferences</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-free', 'Dairy-free', 'Nut-free', 'Seafood-free', 'No restrictions'].map((diet) => (
+                    <label key={diet} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.personalPreferences.dietaryRestrictions.includes(diet)}
+                        onChange={(e) => handlePreferenceChange('dietaryRestrictions', diet, e.target.checked)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">{diet}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Accessibility */}
+              <div className="space-y-2">
+                <Label>Accessibility Requirements</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {['Wheelchair accessible', 'Elevator access', 'Ramp access', 'Audio guides', 'Visual guides', 'Sign language', 'No special requirements'].map((access) => (
+                    <label key={access} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.personalPreferences.accessibility.includes(access)}
+                        onChange={(e) => handlePreferenceChange('accessibility', access, e.target.checked)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">{access}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Travel Pace */}
+              <div className="space-y-2">
+                <Label>Preferred Travel Pace</Label>
+                <Select value={formData.personalPreferences.pace} onValueChange={(value) => handlePreferenceChange('pace', value, true)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your preferred pace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="relaxed">Relaxed - Take it easy, lots of breaks</SelectItem>
+                    <SelectItem value="moderate">Moderate - Balanced activity and rest</SelectItem>
+                    <SelectItem value="active">Active - Packed schedule, maximize experiences</SelectItem>
+                    <SelectItem value="intense">Intense - Non-stop adventure, minimal downtime</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Group Size */}
+              <div className="space-y-2">
+                <Label>Group Size</Label>
+                <Select value={formData.personalPreferences.groupSize} onValueChange={(value) => handlePreferenceChange('groupSize', value, true)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solo">Solo Traveler</SelectItem>
+                    <SelectItem value="couple">Couple (2 people)</SelectItem>
+                    <SelectItem value="small-group">Small Group (3-5 people)</SelectItem>
+                    <SelectItem value="large-group">Large Group (6+ people)</SelectItem>
+                    <SelectItem value="family">Family with Children</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Special Requirements */}
+              <div className="space-y-2">
+                <Label htmlFor="specialRequirements">Special Requirements or Requests</Label>
+                <textarea
+                  id="specialRequirements"
+                  placeholder="Any special needs, allergies, or specific requests..."
+                  value={formData.personalPreferences.specialRequirements}
+                  onChange={(e) => handlePreferenceChange('specialRequirements', e.target.value, true)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+                  rows={3}
                 />
-                <span className="text-sm">{style}</span>
-              </label>
-            ))}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Interests */}
-        <div className="space-y-2">
-          <Label>Interests & Activities</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {['Museums', 'Nature', 'Shopping', 'Food & Dining', 'History', 'Art', 'Music', 'Sports', 'Photography', 'Nightlife', 'Wellness', 'Technology'].map((interest) => (
-              <label key={interest} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.personalPreferences.interests.includes(interest)}
-                  onChange={(e) => handlePreferenceChange('interests', interest, e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm">{interest}</span>
-              </label>
-            ))}
-          </div>
+        {/* Submit Button */}
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-center">
+          <Button type="submit" className="w-full bg-white text-blue-600 hover:bg-gray-50" size="lg" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Your Perfect Itinerary...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />
+                Generate Travel Itinerary
+              </>
+            )}
+          </Button>
         </div>
-
-        {/* Dietary Restrictions */}
-        <div className="space-y-2">
-          <Label>Dietary Preferences</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-free', 'Dairy-free', 'Nut-free', 'Seafood-free', 'No restrictions'].map((diet) => (
-              <label key={diet} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.personalPreferences.dietaryRestrictions.includes(diet)}
-                  onChange={(e) => handlePreferenceChange('dietaryRestrictions', diet, e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm">{diet}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Accessibility */}
-        <div className="space-y-2">
-          <Label>Accessibility Requirements</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {['Wheelchair accessible', 'Elevator access', 'Ramp access', 'Audio guides', 'Visual guides', 'Sign language', 'No special requirements'].map((access) => (
-              <label key={access} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.personalPreferences.accessibility.includes(access)}
-                  onChange={(e) => handlePreferenceChange('accessibility', access, e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm">{access}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Travel Pace */}
-        <div className="space-y-2">
-          <Label>Preferred Travel Pace</Label>
-          <Select value={formData.personalPreferences.pace} onValueChange={(value) => handlePreferenceChange('pace', value, true)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select your preferred pace" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relaxed">Relaxed - Take it easy, lots of breaks</SelectItem>
-              <SelectItem value="moderate">Moderate - Balanced activity and rest</SelectItem>
-              <SelectItem value="active">Active - Packed schedule, maximize experiences</SelectItem>
-              <SelectItem value="intense">Intense - Non-stop adventure, minimal downtime</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Group Size */}
-        <div className="space-y-2">
-          <Label>Group Size</Label>
-          <Select value={formData.personalPreferences.groupSize} onValueChange={(value) => handlePreferenceChange('groupSize', value, true)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select group size" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="solo">Solo Traveler</SelectItem>
-              <SelectItem value="couple">Couple (2 people)</SelectItem>
-              <SelectItem value="small-group">Small Group (3-5 people)</SelectItem>
-              <SelectItem value="large-group">Large Group (6+ people)</SelectItem>
-              <SelectItem value="family">Family with Children</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Special Requirements */}
-        <div className="space-y-2">
-          <Label htmlFor="specialRequirements">Special Requirements or Requests</Label>
-          <textarea
-            id="specialRequirements"
-            placeholder="Any special needs, allergies, or specific requests..."
-            value={formData.personalPreferences.specialRequirements}
-            onChange={(e) => handlePreferenceChange('specialRequirements', e.target.value, true)}
-                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
-            rows={3}
-          />
-        </div>
-      </div>
-
-      {/* Submit Button */}
-      <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Generating...
-          </>
-        ) : (
-          'Generate Travel Itinerary'
-        )}
-      </Button>
-    </form>
+      </form>
+    </div>
   )
 }

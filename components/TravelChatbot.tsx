@@ -113,7 +113,11 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
       'activities': "What activities would you recommend for my destination?",
       'accommodation': "I need help choosing the right accommodation type for my trip.",
       'dietary': "I have some dietary restrictions. Can you help me plan around them?",
-      'accessibility': "I need information about accessibility options for my trip."
+      'accessibility': "I need information about accessibility options for my trip.",
+      'adventure': "I'm looking for adventure activities and outdoor experiences.",
+      'relax': "I want a relaxing, peaceful trip with spa and wellness activities.",
+      'couple': "This is a romantic trip for two. What would you recommend?",
+      'family': "I'm planning a family trip with children. What should I consider?"
     }
 
     const message = quickMessages[action as keyof typeof quickMessages]
@@ -200,14 +204,15 @@ export default function TravelChatbot({ onPreferencesUpdate, currentFormData }: 
 
           {/* Quick Actions */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex flex-wrap gap-2 mb-3">
-              {['budget', 'activities', 'accommodation', 'dietary', 'accessibility'].map((action) => (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Quick Actions:</div>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {['budget', 'activities', 'accommodation', 'dietary', 'accessibility', 'adventure', 'relax', 'couple', 'family'].map((action) => (
                 <Button
                   key={action}
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickActions(action)}
-                  className="text-xs"
+                  className="text-xs px-2 py-1 h-auto"
                 >
                   {action.charAt(0).toUpperCase() + action.slice(1)}
                 </Button>

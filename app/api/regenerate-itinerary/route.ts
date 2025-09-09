@@ -7,76 +7,67 @@ export async function POST(req: Request) {
       originalItinerary, 
       updatedBudget, 
       travelPreferences, 
-      tripDetails 
+      tripDetails,
+      userFeedback,
+      modificationType
     } = await req.json();
 
     // Validate required data
-    if (!originalItinerary || !updatedBudget || !tripDetails) {
+    if (!originalItinerary || !tripDetails) {
       return NextResponse.json(
         { error: 'Missing required data for itinerary regeneration' },
         { status: 400 }
       );
     }
 
+    // Handle different types of modifications
+    const isBudgetModification = modificationType === 'budget' && updatedBudget;
+    const isFeedbackModification = modificationType === 'feedback' && userFeedback;
+    
+    if (!isBudgetModification && !isFeedbackModification) {
+      return NextResponse.json(
+        { error: 'Must specify either budget update or user feedback' },
+        { status: 400 }
+      );
+    }
+
     // Extract budget information
     const { totalBudget, days } = tripDetails;
-    const { 
-      accommodation, 
-      food, 
-      activities, 
-      transport, 
-      shopping, 
-      misc 
-    } = updatedBudget;
+    
+    // Handle budget modifications
+    let budgetContext = '';
+    let budgetChanges = {};
+    
+    if (isBudgetModification) {
+      const { 
+        accommodation, 
+        food, 
+        activities, 
+        transport, 
+        shopping, 
+        misc 
+      } = updatedBudget;
 
-    // Calculate budget changes
-    const originalBudget = {
-      accommodation: Math.round(totalBudget * 0.35),
-      food: Math.round(totalBudget * 0.25),
-      activities: Math.round(totalBudget * 0.20),
-      transport: Math.round(totalBudget * 0.15),
-      shopping: Math.round(totalBudget * 0.05),
-      misc: 0
-    };
+      // Calculate budget changes
+      const originalBudget = {
+        accommodation: Math.round(totalBudget * 0.35),
+        food: Math.round(totalBudget * 0.25),
+        activities: Math.round(totalBudget * 0.20),
+        transport: Math.round(totalBudget * 0.15),
+        shopping: Math.round(totalBudget * 0.05),
+        misc: 0
+      };
 
-    const budgetChanges = {
-      accommodation: accommodation - originalBudget.accommodation,
-      food: food - originalBudget.food,
-      activities: activities - originalBudget.activities,
-      transport: transport - originalBudget.transport,
-      shopping: shopping - originalBudget.shopping,
-      misc: misc - originalBudget.misc
-    };
+      budgetChanges = {
+        accommodation: accommodation - originalBudget.accommodation,
+        food: food - originalBudget.food,
+        activities: activities - originalBudget.activities,
+        transport: transport - originalBudget.transport,
+        shopping: shopping - originalBudget.shopping,
+        misc: misc - originalBudget.misc
+      };
 
-    // Generate new itinerary using Gemini AI
-    let newItinerary;
-    try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-      // Parse dates to get season and month information
-      const start = new Date(tripDetails.startDate);
-      const end = new Date(tripDetails.endDate);
-      const month = start.getMonth();
-      
-      // Determine season
-      let season = '';
-      if (month >= 2 && month <= 4) season = 'Spring';
-      else if (month >= 5 && month <= 7) season = 'Summer';
-      else if (month >= 8 && month <= 10) season = 'Autumn/Fall';
-      else season = 'Winter';
-      
-      // Get month name
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                         'July', 'August', 'September', 'October', 'November', 'December'];
-      const monthName = monthNames[month];
-
-      const prompt = `REGENERATE a ${days}-day travel itinerary for ${tripDetails.name} traveling from ${tripDetails.departureLocation} to ${tripDetails.destination}, 
-      preferring ${tripDetails.accommodations} accommodations, interested in ${tripDetails.activities.join(', ')}, 
-      with a UPDATED total budget of $${totalBudget}. 
-
-      TRAVEL DATES: ${tripDetails.startDate} to ${tripDetails.endDate} (${season} - ${monthName})
-      
+      budgetContext = `
       BUDGET ADJUSTMENT CONTEXT:
       - Original Budget: $${totalBudget} (${Object.entries(originalBudget).map(([k, v]) => `${k}: $${v}`).join(', ')})
       - Updated Budget: $${totalBudget} (${Object.entries(updatedBudget).map(([k, v]) => `${k}: $${v}`).join(', ')})
@@ -103,6 +94,73 @@ export async function POST(req: Request) {
       - Activities: $${(activities / days).toFixed(0)}/day (${((activities / totalBudget) * 100).toFixed(1)}% of daily budget)
       - Transport: $${(transport / days).toFixed(0)}/day (${((transport / totalBudget) * 100).toFixed(1)}% of daily budget)
       - Shopping/Misc: $${((shopping + misc) / days).toFixed(0)}/day (${(((shopping + misc) / totalBudget) * 100).toFixed(1)}% of daily budget)
+      `;
+    } else {
+      // For feedback modifications, use original budget allocation
+      budgetContext = `
+      BUDGET CONTEXT (maintaining original allocation):
+      - Total Budget: $${totalBudget}
+      - Daily Budget: $${(totalBudget / days).toFixed(0)}/day
+      - Accommodation: ~35% of budget
+      - Food: ~25% of budget  
+      - Activities: ~20% of budget
+      - Transport: ~15% of budget
+      - Shopping/Misc: ~5% of budget
+      `;
+    }
+
+    // Generate new itinerary using Gemini AI
+    let newItinerary;
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+      // Parse dates to get season and month information
+      const start = new Date(tripDetails.startDate);
+      const end = new Date(tripDetails.endDate);
+      const month = start.getMonth();
+      
+      // Determine season
+      let season = '';
+      if (month >= 2 && month <= 4) season = 'Spring';
+      else if (month >= 5 && month <= 7) season = 'Summer';
+      else if (month >= 8 && month <= 10) season = 'Autumn/Fall';
+      else season = 'Winter';
+      
+      // Get month name
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthName = monthNames[month];
+
+      // Create modification context
+      let modificationContext = '';
+      if (isFeedbackModification) {
+        modificationContext = `
+      USER FEEDBACK MODIFICATION:
+      The user has provided the following feedback about their itinerary: "${userFeedback}"
+      
+      IMPORTANT: You must incorporate this feedback into the new itinerary. This could include:
+      - Adding specific activities or attractions mentioned
+      - Changing the pace or schedule structure
+      - Modifying activity types or preferences
+      - Adjusting timing or duration of activities
+      - Adding or removing certain categories of activities
+      - Changing accommodation preferences
+      - Modifying transportation suggestions
+      
+      Make sure the new itinerary directly addresses the user's feedback while maintaining the overall trip structure.
+      `;
+      }
+
+      const prompt = `REGENERATE a ${days}-day travel itinerary for ${tripDetails.name} traveling from ${tripDetails.departureLocation} to ${tripDetails.destination}, 
+      preferring ${tripDetails.accommodations} accommodations, interested in ${tripDetails.activities.join(', ')}, 
+      with a total budget of $${totalBudget}. 
+
+      TRAVEL DATES: ${tripDetails.startDate} to ${tripDetails.endDate} (${season} - ${monthName})
+      
+      ${budgetContext}
+      
+      ${modificationContext}
       
       USER PREFERENCES - MUST MATCH:
       - Accommodation: ${tripDetails.accommodations}
@@ -263,16 +321,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Return the new itinerary along with budget comparison data
-    return NextResponse.json({
-      newItinerary,
-      budgetComparison: {
-        original: originalBudget,
-        updated: updatedBudget,
+    // Return the new itinerary
+    const responseData: any = {
+      itinerary: newItinerary,
+      message: isFeedbackModification 
+        ? 'Itinerary updated successfully based on your feedback'
+        : 'Itinerary regenerated successfully based on updated budget preferences'
+    };
+
+    // Add budget comparison data only for budget modifications
+    if (isBudgetModification) {
+      responseData.budgetComparison = {
         changes: budgetChanges
-      },
-      message: 'Itinerary regenerated successfully based on updated budget preferences'
-    });
+      };
+    }
+
+    return NextResponse.json(responseData);
     
   } catch (error) {
     console.error('API Error:', error);

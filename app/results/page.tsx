@@ -10,6 +10,7 @@ import AccommodationPanel from '@/components/AccommodationPanel'
 import TripMap from '@/components/TripMap'
 import TravelServicesTabs from '@/components/TravelServicesTabs'
 import AnalyticsDashboard from '@/components/AnalyticsDashboard'
+import ItineraryFeedback from '@/components/ItineraryFeedback'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, RefreshCw, Calendar } from 'lucide-react'
@@ -66,6 +67,7 @@ interface BudgetSummary {
 export default function ResultsPage() {
   const router = useRouter()
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([])
+  const [originalItinerary, setOriginalItinerary] = useState<ItineraryDay[]>([])
   const [tripData, setTripData] = useState({
     name: '',
     startDate: '',
@@ -83,6 +85,7 @@ export default function ResultsPage() {
   const [weatherData, setWeatherData] = useState(null)
   const [newsData, setNewsData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [lastUpdateTime, setLastUpdateTime] = useState(0)
   const [unifiedBudgetData, setUnifiedBudgetData] = useState({
     totalActualCost: 0,
     accommodationCost: 0,
@@ -117,6 +120,7 @@ export default function ResultsPage() {
         }
         
         setItinerary(itineraryData)
+        setOriginalItinerary(itineraryData) // Store original itinerary for comparison
         setTripData({
           name: parsedTripData.name,
           startDate: parsedTripData.startDate,
@@ -127,6 +131,7 @@ export default function ResultsPage() {
           accommodations: parsedTripData.accommodations,
           activities: parsedTripData.activities,
           totalBudget: parsedTripData.totalBudget || 0,
+          personalPreferences: parsedTripData.personalPreferences || {},
         })
         
         // Set budget recommendations if available
@@ -287,6 +292,115 @@ export default function ResultsPage() {
 
     setIsLoading(false)
   }, [router])
+
+  // Effect to recalculate budget when itinerary changes (for ItineraryTable updates)
+  useEffect(() => {
+    if (lastUpdateTime > 0 && itinerary.length > 0 && tripData.totalBudget > 0) {
+      const calculateActualCosts = () => {
+        let totalEstimatedCost = 0
+        let accommodationCost = 0
+        let foodCost = 0
+        let activityCost = 0
+        let transportCost = 0
+        let shoppingCost = 0
+
+        itinerary.forEach((day: any) => {
+          day.hourlyActivities?.forEach((activity: any) => {
+            const cost = parseFloat(activity.estimatedCost?.replace(/[^0-9.-]/g, '')) || 0
+            
+            // Categorize costs based on activity type
+            const activityLower = activity.activity.toLowerCase()
+            const locationLower = activity.location.toLowerCase()
+            
+            if (activityLower.includes('hotel') || activityLower.includes('accommodation') || 
+                locationLower.includes('hotel') || locationLower.includes('resort')) {
+              accommodationCost += cost
+            } else if (activityLower.includes('breakfast') || activityLower.includes('lunch') || 
+                      activityLower.includes('dinner') || activityLower.includes('restaurant') ||
+                      activityLower.includes('cafe') || activityLower.includes('food') ||
+                      locationLower.includes('restaurant') || locationLower.includes('cafe')) {
+              foodCost += cost
+            } else if (activityLower.includes('shopping') || activityLower.includes('market') ||
+                      locationLower.includes('mall') || locationLower.includes('shop')) {
+              shoppingCost += cost
+            } else if (activityLower.includes('transport') || activityLower.includes('taxi') ||
+                      activityLower.includes('metro') || activityLower.includes('bus') ||
+                      activityLower.includes('car rental') || activityLower.includes('flight')) {
+              transportCost += cost
+            } else {
+              // Default to activities if unclear
+              activityCost += cost
+            }
+            
+            totalEstimatedCost += cost
+          })
+        })
+
+        return {
+          totalEstimatedCost,
+          accommodationCost,
+          foodCost,
+          activityCost,
+          transportCost,
+          shoppingCost
+        }
+      }
+
+      const actualCosts = calculateActualCosts()
+      const totalBudget = tripData.totalBudget || 0
+      const days = tripData.days || 1
+      const dailyBudget = totalBudget / days
+      const actualDailySpent = actualCosts.totalEstimatedCost / days
+      const budgetUtilization = dailyBudget > 0 ? (actualDailySpent / dailyBudget) * 100 : 0
+      const totalBudgetUtilization = (actualCosts.totalEstimatedCost / totalBudget) * 100
+
+      // Update unified budget data
+      setUnifiedBudgetData({
+        totalActualCost: actualCosts.totalEstimatedCost,
+        accommodationCost: actualCosts.accommodationCost,
+        foodCost: actualCosts.foodCost,
+        activityCost: actualCosts.activityCost,
+        transportCost: actualCosts.transportCost,
+        shoppingCost: actualCosts.shoppingCost,
+        totalBudgetUtilization,
+        dailyBudgetUtilization: budgetUtilization,
+        dailyBudget,
+        totalBudget,
+        days
+      })
+
+      // Update budget summary
+      const budgetUtilizationPercent = (actualCosts.totalEstimatedCost / totalBudget) * 100
+      const isOverBudget = budgetUtilizationPercent > 100
+      
+      const violations: BudgetViolation[] = isOverBudget ? [{
+        day: 1,
+        category: 'overall',
+        cost: actualCosts.totalEstimatedCost,
+        limit: totalBudget,
+        overage: actualCosts.totalEstimatedCost - totalBudget,
+        percentage: budgetUtilizationPercent,
+        type: 'daily_overage'
+      }] : []
+    
+      setBudgetSummary({
+        totalBudget,
+        dailyBudget,
+        violations,
+        warnings: [],
+        isValid: !isOverBudget
+      })
+
+      console.log('Budget data recalculated after itinerary table update:', {
+        totalCost: actualCosts.totalEstimatedCost,
+        budgetUtilization: budgetUtilizationPercent,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Show a brief notification that budget was updated
+      console.log('✅ Budget and map data synchronized with itinerary table changes')
+    }
+  }, [lastUpdateTime, itinerary, tripData])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -476,11 +590,144 @@ export default function ResultsPage() {
         <div className="mb-6">
           <ItineraryTable 
             itinerary={itinerary} 
+            originalItinerary={originalItinerary}
             tripData={tripData}
             onItineraryUpdate={(updatedItinerary) => {
               setItinerary(updatedItinerary)
               // Update localStorage with the new itinerary
               localStorage.setItem('itinerary', JSON.stringify(updatedItinerary))
+              
+              // Trigger budget recalculation for ItineraryTable updates too
+              // This ensures consistency when users manually edit activities
+              if (updatedItinerary && tripData) {
+                // Force a re-render by updating a timestamp
+                setLastUpdateTime(Date.now())
+              }
+            }}
+          />
+        </div>
+
+        {/* Dynamic Itinerary Feedback Section */}
+        <div className="mb-6">
+          <ItineraryFeedback 
+            itinerary={itinerary}
+            tripData={tripData}
+            onItineraryUpdate={(updatedItinerary) => {
+              console.log('Results: Itinerary updated from feedback', {
+                hasItinerary: !!updatedItinerary,
+                itineraryLength: updatedItinerary?.length,
+                firstDayActivities: updatedItinerary?.[0]?.hourlyActivities?.length
+              })
+              setItinerary(updatedItinerary)
+              // Update localStorage with the new itinerary
+              localStorage.setItem('itinerary', JSON.stringify(updatedItinerary))
+              
+              // Recalculate budget data with the updated itinerary
+              if (updatedItinerary && tripData) {
+                const calculateActualCosts = () => {
+                  let totalEstimatedCost = 0
+                  let accommodationCost = 0
+                  let foodCost = 0
+                  let activityCost = 0
+                  let transportCost = 0
+                  let shoppingCost = 0
+
+                  updatedItinerary.forEach((day: any) => {
+                    day.hourlyActivities?.forEach((activity: any) => {
+                      const cost = parseFloat(activity.estimatedCost?.replace(/[^0-9.-]/g, '')) || 0
+                      
+                      // Categorize costs based on activity type
+                      const activityLower = activity.activity.toLowerCase()
+                      const locationLower = activity.location.toLowerCase()
+                      
+                      if (activityLower.includes('hotel') || activityLower.includes('accommodation') || 
+                          locationLower.includes('hotel') || locationLower.includes('resort')) {
+                        accommodationCost += cost
+                      } else if (activityLower.includes('breakfast') || activityLower.includes('lunch') || 
+                                activityLower.includes('dinner') || activityLower.includes('restaurant') ||
+                                activityLower.includes('cafe') || activityLower.includes('food') ||
+                                locationLower.includes('restaurant') || locationLower.includes('cafe')) {
+                        foodCost += cost
+                      } else if (activityLower.includes('shopping') || activityLower.includes('market') ||
+                                locationLower.includes('mall') || locationLower.includes('shop')) {
+                        shoppingCost += cost
+                      } else if (activityLower.includes('transport') || activityLower.includes('taxi') ||
+                                activityLower.includes('metro') || activityLower.includes('bus') ||
+                                activityLower.includes('car rental') || activityLower.includes('flight')) {
+                        transportCost += cost
+                      } else {
+                        // Default to activities if unclear
+                        activityCost += cost
+                      }
+                      
+                      totalEstimatedCost += cost
+                    })
+                  })
+
+                  return {
+                    totalEstimatedCost,
+                    accommodationCost,
+                    foodCost,
+                    activityCost,
+                    transportCost,
+                    shoppingCost
+                  }
+                }
+
+                const actualCosts = calculateActualCosts()
+                const totalBudget = tripData.totalBudget || 0
+                const days = tripData.days || 1
+                const dailyBudget = totalBudget / days
+                const actualDailySpent = actualCosts.totalEstimatedCost / days
+                const budgetUtilization = dailyBudget > 0 ? (actualDailySpent / dailyBudget) * 100 : 0
+                const totalBudgetUtilization = (actualCosts.totalEstimatedCost / totalBudget) * 100
+
+                // Update unified budget data
+                setUnifiedBudgetData({
+                  totalActualCost: actualCosts.totalEstimatedCost,
+                  accommodationCost: actualCosts.accommodationCost,
+                  foodCost: actualCosts.foodCost,
+                  activityCost: actualCosts.activityCost,
+                  transportCost: actualCosts.transportCost,
+                  shoppingCost: actualCosts.shoppingCost,
+                  totalBudgetUtilization,
+                  dailyBudgetUtilization: budgetUtilization,
+                  dailyBudget,
+                  totalBudget,
+                  days
+                })
+
+                // Update budget summary
+                const budgetUtilizationPercent = (actualCosts.totalEstimatedCost / totalBudget) * 100
+                const isOverBudget = budgetUtilizationPercent > 100
+                
+                const violations: BudgetViolation[] = isOverBudget ? [{
+                  day: 1,
+                  category: 'overall',
+                  cost: actualCosts.totalEstimatedCost,
+                  limit: totalBudget,
+                  overage: actualCosts.totalEstimatedCost - totalBudget,
+                  percentage: budgetUtilizationPercent,
+                  type: 'daily_overage'
+                }] : []
+              
+                setBudgetSummary({
+                  totalBudget,
+                  dailyBudget,
+                  violations,
+                  warnings: [],
+                  isValid: !isOverBudget
+                })
+
+                console.log('Budget data recalculated after itinerary update:', {
+                  totalCost: actualCosts.totalEstimatedCost,
+                  budgetUtilization: budgetUtilizationPercent,
+                  timestamp: new Date().toISOString()
+                })
+                
+                // Show a brief notification that budget was updated
+                console.log('✅ Budget and map data synchronized with itinerary changes')
+              }
             }}
           />
         </div>

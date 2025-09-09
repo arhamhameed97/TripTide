@@ -492,6 +492,14 @@ export async function POST(req: Request) {
 
     // 2. Fetch flights (Amadeus API) - now using departure location
     let flights = [];
+    
+    console.log('Checking Amadeus API credentials:', {
+      hasClientId: !!process.env.AMADEUS_CLIENT_ID,
+      hasClientSecret: !!process.env.AMADEUS_CLIENT_SECRET,
+      clientIdLength: process.env.AMADEUS_CLIENT_ID?.length || 0,
+      clientSecretLength: process.env.AMADEUS_CLIENT_SECRET?.length || 0
+    });
+    
     try {
       if (process.env.AMADEUS_CLIENT_ID && process.env.AMADEUS_CLIENT_SECRET) {
         // First get access token
@@ -507,15 +515,38 @@ export async function POST(req: Request) {
         const accessToken = tokenResponse.data.access_token;
 
         // Extract airport codes from departure and destination
-        const departureCode = departureLocation.slice(0, 3).toUpperCase();
-        const destinationCode = destination.slice(0, 3).toUpperCase();
+        // Handle different location formats (city names, airport codes, etc.)
+        const departureCode = departureLocation.length === 3 ? 
+          departureLocation.toUpperCase() : 
+          departureLocation.slice(0, 3).toUpperCase();
+        const destinationCode = destination.length === 3 ? 
+          destination.toUpperCase() : 
+          destination.slice(0, 3).toUpperCase();
+        
+        // Ensure the date is in the future for Amadeus API
+        const searchDate = new Date(startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        if (searchDate < today) {
+          console.log('Start date is in the past, adjusting to tomorrow');
+          searchDate.setDate(today.getDate() + 1);
+        }
+        
+        const formattedDate = searchDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        
+        console.log('Adjusted flight search date:', {
+          originalDate: startDate,
+          adjustedDate: formattedDate,
+          isFuture: searchDate >= today
+        });
 
         // Get flight offers
         const flightsRes = await axios.get('https://test.api.amadeus.com/v2/shopping/flight-offers', {
           params: { 
             originLocationCode: departureCode, 
             destinationLocationCode: destinationCode, 
-            departureDate: startDate, 
+            departureDate: formattedDate, 
             adults: 1, 
             max: 5 
           },
@@ -523,16 +554,20 @@ export async function POST(req: Request) {
             'Authorization': `Bearer ${accessToken}` 
           }
         });
+        
+        console.log('Amadeus API Response:', JSON.stringify(flightsRes.data, null, 2));
         flights = flightsRes.data.data || [];
+      } else {
+        console.log('Amadeus API credentials not found. Please set AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET in .env.local');
       }
-    } catch (flightError) {
+    } catch (flightError: any) {
       console.error('Flight API error:', flightError);
-      // Fallback flight data
-      flights = [
-        { validatingAirlineCodes: ['AA'], price: { total: '450' } },
-        { validatingAirlineCodes: ['UA'], price: { total: '520' } },
-        { validatingAirlineCodes: ['DL'], price: { total: '480' } }
-      ];
+      if (flightError.response) {
+        console.error('Flight API error response:', flightError.response.data);
+        console.error('Flight API error status:', flightError.response.status);
+      }
+      // Don't use fallback data - let the user know there's an issue
+      flights = [];
     }
 
     // 3. Fetch hotels (Booking.com RapidAPI)
@@ -816,9 +851,17 @@ export async function POST(req: Request) {
         cancellationPolicy: hotels[index % hotels.length].cancellation_policy || null
       } : null,
       flight: flights[index % flights.length] ? {
-        airline: flights[index % flights.length].validatingAirlineCodes?.[0] || 'Airline not available',
-        price: flights[index % flights.length].price?.total || 'Price not available',
-        link: '#'
+        airline: flights[index % flights.length].validatingAirlineCodes?.[0] || 
+                flights[index % flights.length].itineraries?.[0]?.segments?.[0]?.carrierCode || 
+                'Airline not available',
+        price: flights[index % flights.length].price?.total || 
+               flights[index % flights.length].price?.grandTotal || 
+               'Price not available',
+        link: '#',
+        departureTime: flights[index % flights.length].itineraries?.[0]?.segments?.[0]?.departure?.at?.substring(11, 16) || 'N/A',
+        arrivalTime: flights[index % flights.length].itineraries?.[0]?.segments?.[flights[index % flights.length].itineraries?.[0]?.segments?.length - 1]?.arrival?.at?.substring(11, 16) || 'N/A',
+        duration: flights[index % flights.length].itineraries?.[0]?.duration || 'N/A',
+        stops: flights[index % flights.length].itineraries?.[0]?.segments?.length - 1 || 0
       } : null
     }));
 

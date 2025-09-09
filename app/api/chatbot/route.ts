@@ -20,27 +20,83 @@ export async function POST(request: NextRequest) {
     if (!process.env.GEMINI_API_KEY) {
       console.log('GEMINI_API_KEY is missing - using fallback responses')
       
-      // Provide fallback responses for testing
+      // Provide fallback responses for testing with actual preference updates
       const fallbackResponses = {
         'budget': {
-          response: "I'd be happy to help you with your budget! For a typical trip, I recommend allocating 35% for accommodation, 25% for food, 20% for activities, 15% for transport, and 5% for shopping. What's your total budget for this trip?",
-          preferencesUpdate: null
+          response: "I'd be happy to help you with your budget! For a typical trip, I recommend allocating 35% for accommodation, 25% for food, 20% for activities, 15% for transport, and 5% for shopping. I've set a sample budget of $1500 for you - you can adjust this in the form.",
+          preferencesUpdate: { totalBudget: 1500 }
         },
         'activities': {
-          response: "Great question! I can help you choose activities based on your interests. Popular options include cultural experiences, outdoor adventures, food tours, historical sites, and local markets. What types of activities interest you most?",
-          preferencesUpdate: null
+          response: "Great question! I've selected some popular activity preferences for you including culture, food, history, and city exploration. You can modify these in the Activity Preferences section.",
+          preferencesUpdate: { 
+            activities: ['culture', 'food', 'history', 'city'],
+            personalPreferences: {
+              interests: ['Museums', 'Food & Dining', 'History', 'City Exploration']
+            }
+          }
         },
         'accommodation': {
-          response: "I can help you choose the perfect accommodation! Options range from budget hostels to luxury hotels. Consider factors like location, amenities, and your budget. What's your preference for accommodation type?",
-          preferencesUpdate: null
+          response: "I can help you choose the perfect accommodation! I've set your preference to a standard hotel, which offers good value and comfort. You can change this in the Budget & Accommodation section.",
+          preferencesUpdate: { accommodations: 'hotel' }
         },
         'dietary': {
-          response: "I understand dietary restrictions are important! I can help you find suitable dining options and accommodations. Common restrictions include vegetarian, vegan, gluten-free, and halal. What dietary needs should I consider?",
-          preferencesUpdate: null
+          response: "I understand dietary restrictions are important! I've noted that you have no dietary restrictions, but you can update this in the Advanced Preferences section if needed.",
+          preferencesUpdate: { 
+            personalPreferences: {
+              dietaryRestrictions: ['No restrictions']
+            }
+          }
         },
         'accessibility': {
-          response: "Accessibility is crucial for a comfortable trip! I can help you find wheelchair-accessible accommodations, transportation, and activities. What specific accessibility requirements do you have?",
-          preferencesUpdate: null
+          response: "Accessibility is crucial for a comfortable trip! I've noted that you have no special accessibility requirements, but you can update this in the Advanced Preferences section if needed.",
+          preferencesUpdate: { 
+            personalPreferences: {
+              accessibility: ['No special requirements']
+            }
+          }
+        },
+        'adventure': {
+          response: "Adventure travel sounds exciting! I've updated your preferences to include adventure activities and set your travel style to Adventure. You can fine-tune these in the form.",
+          preferencesUpdate: { 
+            activities: ['adventure', 'nature', 'mountains'],
+            personalPreferences: {
+              travelStyle: ['Adventure'],
+              interests: ['Sports', 'Nature', 'Adventure'],
+              pace: 'active'
+            }
+          }
+        },
+        'relax': {
+          response: "A relaxing trip sounds perfect! I've updated your preferences for a more leisurely pace with spa and wellness activities. You can adjust these in the form.",
+          preferencesUpdate: { 
+            activities: ['spa-wellness', 'beach'],
+            personalPreferences: {
+              travelStyle: ['Relaxation'],
+              interests: ['Wellness'],
+              pace: 'relaxed'
+            }
+          }
+        },
+        'couple': {
+          response: "Perfect for a romantic getaway! I've set your group size to couple and added some romantic travel preferences. You can customize these further in the form.",
+          preferencesUpdate: { 
+            personalPreferences: {
+              groupSize: 'couple',
+              travelStyle: ['Romantic'],
+              interests: ['Fine Dining', 'Art', 'Music']
+            }
+          }
+        },
+        'family': {
+          response: "Family trips are wonderful! I've set your group size to family and added family-friendly preferences. You can adjust these in the Advanced Preferences section.",
+          preferencesUpdate: { 
+            personalPreferences: {
+              groupSize: 'family',
+              travelStyle: ['Family-friendly'],
+              interests: ['Museums', 'Nature', 'Sports'],
+              pace: 'moderate'
+            }
+          }
         }
       }
 
