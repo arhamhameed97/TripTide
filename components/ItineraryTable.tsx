@@ -253,7 +253,7 @@ export default function ItineraryTable({ itinerary, originalItinerary, tripData,
                                   <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                   <span className="text-sm">{activity.activity || 'Activity not specified'}</span>
                                   {isModified && (
-                                    <Sparkles className="w-3 h-3 text-blue-500 mt-1 flex-shrink-0" title="AI Updated" />
+                                    <Sparkles className="w-3 h-3 text-blue-500 mt-1 flex-shrink-0" />
                                   )}
                                 </div>
                               </td>

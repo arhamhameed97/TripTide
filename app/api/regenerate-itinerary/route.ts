@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       BUDGET ADJUSTMENT CONTEXT:
       - Original Budget: $${totalBudget} (${Object.entries(originalBudget).map(([k, v]) => `${k}: $${v}`).join(', ')})
       - Updated Budget: $${totalBudget} (${Object.entries(updatedBudget).map(([k, v]) => `${k}: $${v}`).join(', ')})
-      - Budget Changes: ${Object.entries(budgetChanges).map(([k, v]) => `${k}: ${v > 0 ? '+' : ''}$${v}`).join(', ')}
+      - Budget Changes: ${Object.entries(budgetChanges).map(([k, v]) => `${k}: ${(v as number) > 0 ? '+' : ''}$${v}`).join(', ')}
       
       BUDGET-AWARE RECOMMENDATIONS:
       - If accommodation budget increased: Suggest premium hotels, resorts, or unique accommodations

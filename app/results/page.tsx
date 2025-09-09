@@ -78,6 +78,7 @@ export default function ResultsPage() {
     accommodations: '',
     activities: [],
     totalBudget: 0,
+    personalPreferences: {},
   })
   const [budgetRecommendations, setBudgetRecommendations] = useState(null)
   const [dynamicBudget, setDynamicBudget] = useState(null)
