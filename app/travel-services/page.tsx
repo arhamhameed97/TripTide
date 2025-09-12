@@ -53,7 +53,33 @@ export default function TravelServicesPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [activeTab, setActiveTab] = useState('events')
+  const [activeTab, setActiveTab] = useState('booking')
+  const [tripData, setTripData] = useState({
+    destination: 'San Francisco, CA',
+    startDate: '',
+    endDate: '',
+    travelers: 2,
+    budget: 1500
+  })
+
+  // Load trip data from localStorage if available
+  useEffect(() => {
+    const storedTripData = localStorage.getItem('tripData')
+    if (storedTripData) {
+      try {
+        const parsedTripData = JSON.parse(storedTripData)
+        setTripData({
+          destination: parsedTripData.destination || 'San Francisco, CA',
+          startDate: parsedTripData.startDate || '',
+          endDate: parsedTripData.endDate || '',
+          travelers: 2,
+          budget: parsedTripData.totalBudget || 1500
+        })
+      } catch (error) {
+        console.error('Error parsing trip data:', error)
+      }
+    }
+  }, [])
 
   // Sample events data
   const events: Event[] = [
@@ -232,27 +258,41 @@ export default function TravelServicesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => router.back()}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                className="flex items-center space-x-2 text-white hover:bg-white/20"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back</span>
+                <span>Back to Itinerary</span>
               </Button>
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                  <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="p-3 bg-white/20 rounded-full">
+                  <MapPin className="w-6 h-6" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Travel Services</h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Discover local events and book your trip essentials</p>
+                  <h1 className="text-3xl font-bold">Travel Services</h1>
+                  <p className="text-blue-100">Book your trip essentials and discover local experiences</p>
                 </div>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center space-x-6 text-sm">
+              <div className="text-center">
+                <div className="text-blue-100">Destination</div>
+                <div className="font-semibold">{tripData.destination}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-blue-100">Budget</div>
+                <div className="font-semibold">${tripData.budget}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-blue-100">Travelers</div>
+                <div className="font-semibold">{tripData.travelers}</div>
               </div>
             </div>
           </div>
@@ -262,14 +302,14 @@ export default function TravelServicesPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-gray-800 shadow-sm">
-            <TabsTrigger value="events" className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4" />
-              <span>Local Events</span>
-            </TabsTrigger>
-            <TabsTrigger value="booking" className="flex items-center space-x-2">
+          <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-gray-800 shadow-lg rounded-xl">
+            <TabsTrigger value="booking" className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <ShoppingBag className="w-4 h-4" />
               <span>Book Your Trip</span>
+            </TabsTrigger>
+            <TabsTrigger value="events" className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <Calendar className="w-4 h-4" />
+              <span>Local Events</span>
             </TabsTrigger>
           </TabsList>
 
@@ -363,35 +403,51 @@ export default function TravelServicesPage() {
 
           {/* Book Your Trip Tab */}
           <TabsContent value="booking" className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
+            {/* Trip Budget Overview */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">Trip Budget</h3>
+                  <p className="text-green-700 dark:text-green-300">Total budget for your {tripData.destination} trip</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">${tripData.budget}</div>
+                  <div className="text-sm text-green-600 dark:text-green-400">Available to spend</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border p-6">
               <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Book Your Trip</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Reserve your travel essentials and experiences</p>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Book Your Trip</h2>
+                <p className="text-gray-600 dark:text-gray-300">Reserve your travel essentials and experiences for {tripData.destination}</p>
               </div>
 
               {/* Booking Services Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {bookingServices.map((service) => (
-                  <Card key={service.id} className="hover:shadow-md transition-shadow duration-200">
+                  <Card key={service.id} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
                     <CardContent className="p-6">
                       <div className="flex items-start space-x-4">
-                        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                          {service.icon}
+                        <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl">
+                          <div className="text-blue-600 dark:text-blue-400">
+                            {service.icon}
+                          </div>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                             {service.title}
                           </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                             {service.description}
                           </p>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            <span className="text-lg font-bold text-green-600 dark:text-green-400">
                               {service.price}
                             </span>
                             <Button 
                               size="sm" 
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                               disabled={!service.available}
                             >
                               {service.available ? 'Book Now' : 'Unavailable'}
@@ -402,6 +458,25 @@ export default function TravelServicesPage() {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button className="h-12 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Compare Prices
+                  </Button>
+                  <Button className="h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Set Reminders
+                  </Button>
+                  <Button className="h-12 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white">
+                    <Star className="w-4 h-4 mr-2" />
+                    Save Favorites
+                  </Button>
+                </div>
               </div>
             </div>
           </TabsContent>

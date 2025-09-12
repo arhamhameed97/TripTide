@@ -92,7 +92,8 @@ export default function SidebarNavigation({ className = '' }: SidebarNavigationP
       id: 'travel-services',
       label: 'Travel Services',
       icon: <ShoppingBag className="w-4 h-4" />,
-      section: 'travel-services'
+      section: 'travel-services',
+      isExternal: true
     },
     {
       id: 'accommodation',
