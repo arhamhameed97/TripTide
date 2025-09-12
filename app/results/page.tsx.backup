@@ -553,14 +553,7 @@ export default function ResultsPage() {
 
         {/* Weather Forecast and Local News - Combined */}
         <div id="weather-news" className="mb-6">
-          <WeatherAndNews 
-            weather={weatherData} 
-            news={newsData}
-            destination={tripData.destination}
-            startDate={tripData.startDate}
-            endDate={tripData.endDate}
-            interests={tripData.activities}
-          />
+          <WeatherAndNews weather={weatherData} news={newsData} />
         </div>
 
         {/* Hourly Itinerary Display */}
@@ -656,26 +649,26 @@ export default function ResultsPage() {
                 const isOverBudget = actualCosts.totalEstimatedCost > totalBudget
 
                 // Create unified budget data
-                const budgetUtilization = dailyBudget > 0 ? (actualCosts.totalEstimatedCost / dailyBudget) * 100 : 0
-                const totalBudgetUtilization = (actualCosts.totalEstimatedCost / totalBudget) * 100
-
-                setUnifiedBudgetData({
-                  totalActualCost: actualCosts.totalEstimatedCost,
-                  accommodationCost: actualCosts.accommodationCost,
-                  foodCost: actualCosts.foodCost,
-                  activityCost: actualCosts.activityCost,
-                  transportCost: actualCosts.transportCost,
-                  shoppingCost: actualCosts.shoppingCost,
-                  totalBudgetUtilization,
-                  dailyBudgetUtilization: budgetUtilization,
-                  dailyBudget,
+                const unifiedBudgetData = {
                   totalBudget,
-                  days: tripData.days
-                })
+                  dailyBudget,
+                  totalEstimatedCost: actualCosts.totalEstimatedCost,
+                  budgetUtilizationPercent,
+                  isOverBudget,
+                  breakdown: {
+                    accommodation: actualCosts.accommodationCost,
+                    food: actualCosts.foodCost,
+                    activities: actualCosts.activityCost,
+                    transport: actualCosts.transportCost,
+                    shopping: actualCosts.shoppingCost
+                  }
+                }
+
+                setUnifiedBudgetData(unifiedBudgetData)
 
                 // Create budget summary with violations
-                const violations: BudgetViolation[] = isOverBudget ? [{
-                  day: 1,
+                const violations = isOverBudget ? [{
+                  day: 'Overall',
                   category: 'overall',
                   cost: actualCosts.totalEstimatedCost,
                   limit: totalBudget,
@@ -703,11 +696,6 @@ export default function ResultsPage() {
               }
             }}
           />
-        </div>
-
-        {/* Trip Map */}
-        <div id="trip-map" className="mb-6">
-          <TripMap itinerary={itinerary} tripData={tripData} />
         </div>
 
         {/* Budget Validation Display */}
@@ -784,17 +772,133 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Travel Services - Booking */}
-        <div id="travel-services" className="mb-6">
-          <TravelServicesTabs
-            destination={tripData.destination}
-            startDate={tripData.startDate}
-            endDate={tripData.endDate}
-            travelers={2}
-            budget={tripData.totalBudget}
-            departureLocation={tripData.departureLocation}
-            interests={tripData.activities}
+        {/* Trip Map - Right after Improve Itinerary */}
+          <ItineraryFeedback 
+            itinerary={itinerary}
+            tripData={tripData}
+            onItineraryUpdate={(updatedItinerary) => {
+              console.log('Results: Itinerary updated from feedback', {
+                hasItinerary: !!updatedItinerary,
+                itineraryLength: updatedItinerary?.length,
+                firstDayActivities: updatedItinerary?.[0]?.hourlyActivities?.length
+              })
+              setItinerary(updatedItinerary)
+              // Update localStorage with the new itinerary
+              localStorage.setItem('itinerary', JSON.stringify(updatedItinerary))
+              
+              // Recalculate budget data with the updated itinerary
+              if (updatedItinerary && tripData) {
+                const calculateActualCosts = () => {
+                  let totalEstimatedCost = 0
+                  let accommodationCost = 0
+                  let foodCost = 0
+                  let activityCost = 0
+                  let transportCost = 0
+                  let shoppingCost = 0
+
+                  updatedItinerary.forEach((day: any) => {
+                    day.hourlyActivities?.forEach((activity: any) => {
+                      const cost = parseFloat(activity.estimatedCost?.replace(/[^0-9.-]/g, '')) || 0
+                      
+                      // Categorize costs based on activity type
+                      const activityLower = activity.activity.toLowerCase()
+                      const locationLower = activity.location.toLowerCase()
+                      
+                      if (activityLower.includes('hotel') || activityLower.includes('accommodation') || 
+                          locationLower.includes('hotel') || locationLower.includes('resort')) {
+                        accommodationCost += cost
+                      } else if (activityLower.includes('breakfast') || activityLower.includes('lunch') || 
+                                activityLower.includes('dinner') || activityLower.includes('restaurant') ||
+                                activityLower.includes('cafe') || activityLower.includes('food') ||
+                                locationLower.includes('restaurant') || locationLower.includes('cafe')) {
+                        foodCost += cost
+                      } else if (activityLower.includes('shopping') || activityLower.includes('market') ||
+                                locationLower.includes('mall') || locationLower.includes('shop')) {
+                        shoppingCost += cost
+                      } else if (activityLower.includes('transport') || activityLower.includes('taxi') ||
+                                activityLower.includes('metro') || activityLower.includes('bus') ||
+                                activityLower.includes('car rental') || activityLower.includes('flight')) {
+                        transportCost += cost
+                      } else {
+                        // Default to activities if unclear
+                        activityCost += cost
+                      }
+                      
+                      totalEstimatedCost += cost
+                    })
+                  })
+
+                  return {
+                    totalEstimatedCost,
+                    accommodationCost,
+                    foodCost,
+                    activityCost,
+                    transportCost,
+                    shoppingCost
+                  }
+                }
+
+                const actualCosts = calculateActualCosts()
+                const totalBudget = tripData.totalBudget || 0
+                const days = tripData.days || 1
+                const dailyBudget = totalBudget / days
+                const actualDailySpent = actualCosts.totalEstimatedCost / days
+                const budgetUtilization = dailyBudget > 0 ? (actualDailySpent / dailyBudget) * 100 : 0
+                const totalBudgetUtilization = (actualCosts.totalEstimatedCost / totalBudget) * 100
+
+                // Update unified budget data
+                setUnifiedBudgetData({
+                  totalActualCost: actualCosts.totalEstimatedCost,
+                  accommodationCost: actualCosts.accommodationCost,
+                  foodCost: actualCosts.foodCost,
+                  activityCost: actualCosts.activityCost,
+                  transportCost: actualCosts.transportCost,
+                  shoppingCost: actualCosts.shoppingCost,
+                  totalBudgetUtilization,
+                  dailyBudgetUtilization: budgetUtilization,
+                  dailyBudget,
+                  totalBudget,
+                  days
+                })
+
+                // Update budget summary
+                const budgetUtilizationPercent = (actualCosts.totalEstimatedCost / totalBudget) * 100
+                const isOverBudget = budgetUtilizationPercent > 100
+                
+                const violations: BudgetViolation[] = isOverBudget ? [{
+                  day: 1,
+                  category: 'overall',
+                  cost: actualCosts.totalEstimatedCost,
+                  limit: totalBudget,
+                  overage: actualCosts.totalEstimatedCost - totalBudget,
+                  percentage: budgetUtilizationPercent,
+                  type: 'daily_overage'
+                }] : []
+              
+                setBudgetSummary({
+                  totalBudget,
+                  dailyBudget,
+                  violations,
+                  warnings: [],
+                  isValid: !isOverBudget
+                })
+
+                console.log('Budget data recalculated after itinerary update:', {
+                  totalCost: actualCosts.totalEstimatedCost,
+                  budgetUtilization: budgetUtilizationPercent,
+                  timestamp: new Date().toISOString()
+                })
+                
+                // Show a brief notification that budget was updated
+                console.log('✅ Budget and map data synchronized with itinerary changes')
+              }
+            }}
           />
+        </div>
+
+        {/* Trip Map - Right after Improve Itinerary */}
+        <div id="trip-map" className="mb-6">
+          <TripMap itinerary={itinerary} tripData={tripData} />
         </div>
 
         {/* Accommodation Panel */}
@@ -819,6 +923,19 @@ export default function ResultsPage() {
               />
             )
           })()}
+        </div>
+
+        {/* Travel Services - Events & Booking */}
+        <div className="mb-6">
+          <TravelServicesTabs
+            destination={tripData.destination}
+            startDate={tripData.startDate}
+            endDate={tripData.endDate}
+            travelers={2}
+            budget={tripData.totalBudget}
+            departureLocation={tripData.departureLocation}
+            interests={tripData.activities}
+          />
         </div>
 
         {/* Analytics Dashboard */}

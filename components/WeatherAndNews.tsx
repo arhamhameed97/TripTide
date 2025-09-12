@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import LocalEventsCalendar from '@/components/LocalEventsCalendar'
 import { 
   Cloud, 
   Thermometer, 
@@ -55,9 +56,13 @@ interface NewsData {
 interface WeatherAndNewsProps {
   weather: WeatherData | null
   news: NewsData | null
+  destination: string
+  startDate: string
+  endDate: string
+  interests: string[]
 }
 
-export default function WeatherAndNews({ weather, news }: WeatherAndNewsProps) {
+export default function WeatherAndNews({ weather, news, destination, startDate, endDate, interests }: WeatherAndNewsProps) {
   const [activeTab, setActiveTab] = useState('weather')
 
   const getWeatherIcon = (iconCode: string) => {
@@ -109,15 +114,15 @@ export default function WeatherAndNews({ weather, news }: WeatherAndNewsProps) {
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold text-blue-900 flex items-center gap-2">
           <Info className="w-5 h-5" />
-          Destination Information
+          Weather & News
         </CardTitle>
         <CardDescription className="text-blue-700">
-          Weather forecast and local news for your trip
+          Weather forecast, local news, and events for your trip
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="weather" className="flex items-center gap-2">
               <Cloud className="w-4 h-4" />
               Weather
@@ -127,6 +132,9 @@ export default function WeatherAndNews({ weather, news }: WeatherAndNewsProps) {
               <Newspaper className="w-4 h-4" />
               News
               {hasNewsData && <span className="text-xs">({news.news.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="events" className="flex items-center gap-2">
+              🗓️ Events
             </TabsTrigger>
           </TabsList>
 
@@ -289,6 +297,18 @@ export default function WeatherAndNews({ weather, news }: WeatherAndNewsProps) {
                 )}
               </div>
             )}
+          </TabsContent>
+          {/* Events Tab */}
+          <TabsContent value="events" className="mt-4">
+            <div className="max-h-96 overflow-y-auto">
+              <LocalEventsCalendar
+                destination={destination}
+                startDate={startDate}
+                endDate={endDate}
+                interests={interests}
+                compact={true}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

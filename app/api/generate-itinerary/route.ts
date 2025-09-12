@@ -8,9 +8,80 @@ import {
   generateBudgetAlternatives 
 } from '@/lib/budgetValidation';
 
+// Fallback itinerary generator for when AI fails
+function generateFallbackItinerary(tripDetails: any) {
+  const { days, destination, accommodations, activities, totalBudget } = tripDetails;
+  const dailyBudget = totalBudget / days;
+  
+  const fallbackItinerary = [];
+  
+  for (let day = 1; day <= days; day++) {
+    const dayActivities = [];
+    
+    // Morning activity
+    dayActivities.push({
+      hour: '09:00',
+      activity: `Explore ${destination}`,
+      location: destination,
+      estimatedCost: (dailyBudget * 0.3).toFixed(2),
+      budgetCategory: 'activity'
+    });
+    
+    // Lunch
+    dayActivities.push({
+      hour: '12:00',
+      activity: 'Lunch at local restaurant',
+      location: destination,
+      estimatedCost: (dailyBudget * 0.2).toFixed(2),
+      budgetCategory: 'food'
+    });
+    
+    // Afternoon activity
+    dayActivities.push({
+      hour: '14:00',
+      activity: 'Cultural site visit',
+      location: destination,
+      estimatedCost: (dailyBudget * 0.2).toFixed(2),
+      budgetCategory: 'activity'
+    });
+    
+    // Evening
+    dayActivities.push({
+      hour: '18:00',
+      activity: 'Dinner and relaxation',
+      location: destination,
+      estimatedCost: (dailyBudget * 0.3).toFixed(2),
+      budgetCategory: 'food'
+    });
+    
+    fallbackItinerary.push({
+      day: day,
+      date: new Date(Date.now() + (day - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      hotel: accommodations || 'Hotel in ' + destination,
+      hourlyActivities: dayActivities
+    });
+  }
+  
+  return fallbackItinerary;
+}
+
 export async function POST(req: Request) {
   try {
     const { name, days, startDate, endDate, departureLocation, destination, accommodations, activities, totalBudget, personalPreferences } = await req.json();
+
+    // Create tripDetails object for fallback itinerary generation
+    const tripDetails = {
+      name,
+      days,
+      startDate,
+      endDate,
+      departureLocation,
+      destination,
+      accommodations,
+      activities,
+      totalBudget,
+      personalPreferences
+    };
 
     // Validate budget input and provide warnings
     const budgetValidation = validateBudgetInput(totalBudget, days, accommodations);
@@ -267,18 +338,32 @@ export async function POST(req: Request) {
             break;
           } catch (parseError) {
             console.error('JSON parsing failed, trying to clean the response');
+            console.error('Parse error:', (parseError as Error).message);
+            console.error('Content preview:', content.substring(0, 500));
+            
             try {
-              // Try to extract JSON from the response more aggressively
-              const jsonMatch = content.match(/\[[\s\S]*\]/);
+              // Try multiple JSON extraction strategies
+              let jsonMatch = content.match(/\[[\s\S]*\]/);
+              if (!jsonMatch) {
+                // Try to find JSON object instead of array
+                jsonMatch = content.match(/\{[\s\S]*\}/);
+              }
+              
               if (jsonMatch) {
-                let cleanedJson = jsonMatch[0].replace(/[^\x20-\x7E]/g, ''); // Remove non-printable characters
+                let cleanedJson = jsonMatch[0];
                 
-                // Try to fix common JSON syntax issues
+                // More comprehensive cleaning
                 cleanedJson = cleanedJson
+                  .replace(/[^\x20-\x7E]/g, '') // Remove non-printable characters
                   .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
                   .replace(/([^"\\])\s*\n\s*([^"\\])/g, '$1 $2') // Fix line breaks in strings
                   .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2') // Fix trailing commas before brackets
-                  .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2'); // Double check for trailing commas
+                  .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
+                  .replace(/,\s*]/g, ']') // Remove trailing commas before closing brackets
+                  .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2') // Double check for trailing commas
+                  .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2') // Triple check for trailing commas
+                  .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
+                  .replace(/,\s*]/g, ']'); // Remove trailing commas before closing brackets
                 
                 try {
                   itinerary = JSON.parse(cleanedJson);
@@ -287,11 +372,17 @@ export async function POST(req: Request) {
                   break;
                 } catch (finalError) {
                   console.error('Final JSON parsing failed after syntax fixes:', finalError);
+                  console.error('Cleaned JSON preview:', cleanedJson.substring(0, 500));
+                  
                   // Try one more time with even more aggressive cleaning
                   const ultraCleaned = cleanedJson
                     .replace(/[^\x20-\x7E]/g, '') // Remove ALL non-printable characters
                     .replace(/,\s*}/g, '}') // Remove trailing commas before closing braces
-                    .replace(/,\s*]/g, ']'); // Remove trailing commas before closing brackets
+                    .replace(/,\s*]/g, ']') // Remove trailing commas before closing brackets
+                    .replace(/,\s*}/g, '}') // Double remove trailing commas before closing braces
+                    .replace(/,\s*]/g, ']') // Double remove trailing commas before closing brackets
+                    .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2') // Fix trailing commas before brackets
+                    .replace(/([^"\\])\s*,\s*(\s*[}\]])/g, '$1$2'); // Double check for trailing commas
                   
                   try {
                     itinerary = JSON.parse(ultraCleaned);
@@ -300,8 +391,33 @@ export async function POST(req: Request) {
                     break;
                   } catch (ultraError) {
                     console.error('Ultra-cleaning also failed:', ultraError);
-                    throw parseError; // Re-throw the original error
+                    console.error('Ultra-cleaned JSON preview:', ultraCleaned.substring(0, 500));
+                    
+                    // Last resort: try to extract just the essential data
+                    try {
+                      const fallbackItinerary = generateFallbackItinerary(tripDetails);
+                      console.log('Using fallback itinerary due to JSON parsing failure');
+                      itinerary = fallbackItinerary;
+                      aiSuccess = true;
+                      break;
+                    } catch (fallbackError) {
+                      console.error('Fallback itinerary generation failed:', fallbackError);
+                      throw parseError as Error; // Re-throw the original error
+                    }
                   }
+                }
+              } else {
+                console.error('No JSON array or object found in response');
+                // Try fallback itinerary
+                try {
+                  const fallbackItinerary = generateFallbackItinerary(tripDetails);
+                  console.log('Using fallback itinerary - no JSON found in response');
+                  itinerary = fallbackItinerary;
+                  aiSuccess = true;
+                  break;
+                } catch (fallbackError) {
+                  console.error('Fallback itinerary generation failed:', fallbackError);
+                  throw parseError;
                 }
               }
             } catch (cleanError) {
