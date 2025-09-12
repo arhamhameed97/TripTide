@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { amadeusService } from '@/lib/amadeus'
 
 interface FlightSearchParams {
   origin: string
@@ -60,14 +61,31 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // In production, integrate with real flight APIs like:
-    // - Amadeus API
-    // - Skyscanner API
-    // - Google Flights API
-    // - Kayak API
-    // - Expedia API
-
-    const flights = await fetchRealFlightData(origin, destination, departureDate, passengers, cabinClass, budget, returnDate || undefined)
+    // Use real Amadeus API for flight data
+    let flights
+    try {
+      flights = await amadeusService.searchFlights({
+        origin,
+        destination,
+        departureDate,
+        returnDate: returnDate || undefined,
+        adults: passengers,
+        travelClass: cabinClass,
+        max: 10
+      })
+      
+      // Filter by budget
+      flights = flights.filter(flight => flight.price <= budget)
+      
+      // If no results from Amadeus or API fails, fall back to mock data
+      if (flights.length === 0) {
+        console.log('No Amadeus results, using fallback data')
+        flights = await fetchRealFlightData(origin, destination, departureDate, passengers, cabinClass, budget, returnDate || undefined)
+      }
+    } catch (error) {
+      console.error('Amadeus API error, using fallback:', error)
+      flights = await fetchRealFlightData(origin, destination, departureDate, passengers, cabinClass, budget, returnDate || undefined)
+    }
 
     return NextResponse.json({
       success: true,

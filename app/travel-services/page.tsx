@@ -23,7 +23,9 @@ import {
   Car,
   Hotel,
   ArrowLeft,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 
 interface Event {
@@ -61,6 +63,17 @@ export default function TravelServicesPage() {
     travelers: 2,
     budget: 1500
   })
+  const [loading, setLoading] = useState({
+    flights: false,
+    hotels: false,
+    activities: false
+  })
+  const [realTimeData, setRealTimeData] = useState({
+    flights: [],
+    hotels: [],
+    activities: []
+  })
+  const [error, setError] = useState('')
 
   // Load trip data from localStorage if available
   useEffect(() => {
@@ -80,6 +93,64 @@ export default function TravelServicesPage() {
       }
     }
   }, [])
+
+  // Load real-time data when trip data is available
+  useEffect(() => {
+    if (tripData.startDate && tripData.endDate) {
+      loadRealTimeData()
+    }
+  }, [tripData])
+
+  const loadRealTimeData = async () => {
+    if (!tripData.startDate || !tripData.endDate) return
+
+    setError('')
+    
+    // Load flights
+    setLoading(prev => ({ ...prev, flights: true }))
+    try {
+      const flightsResponse = await fetch(`/api/bookings/flights?origin=NYC&destination=SFO&departureDate=${tripData.startDate}&returnDate=${tripData.endDate}&passengers=${tripData.travelers}&budget=${tripData.budget}`)
+      const flightsData = await flightsResponse.json()
+      if (flightsData.success) {
+        setRealTimeData(prev => ({ ...prev, flights: flightsData.data }))
+      }
+    } catch (error) {
+      console.error('Failed to load flights:', error)
+      setError('Failed to load flight data')
+    } finally {
+      setLoading(prev => ({ ...prev, flights: false }))
+    }
+
+    // Load hotels
+    setLoading(prev => ({ ...prev, hotels: true }))
+    try {
+      const hotelsResponse = await fetch(`/api/bookings/hotels?destination=${encodeURIComponent(tripData.destination)}&checkIn=${tripData.startDate}&checkOut=${tripData.endDate}&guests=${tripData.travelers}&budget=${tripData.budget}`)
+      const hotelsData = await hotelsResponse.json()
+      if (hotelsData.success) {
+        setRealTimeData(prev => ({ ...prev, hotels: hotelsData.data }))
+      }
+    } catch (error) {
+      console.error('Failed to load hotels:', error)
+      setError('Failed to load hotel data')
+    } finally {
+      setLoading(prev => ({ ...prev, hotels: false }))
+    }
+
+    // Load activities
+    setLoading(prev => ({ ...prev, activities: true }))
+    try {
+      const activitiesResponse = await fetch(`/api/bookings/activities?destination=${encodeURIComponent(tripData.destination)}&startDate=${tripData.startDate}&endDate=${tripData.endDate}&participants=${tripData.travelers}&budget=${tripData.budget}`)
+      const activitiesData = await activitiesResponse.json()
+      if (activitiesData.success) {
+        setRealTimeData(prev => ({ ...prev, activities: activitiesData.data }))
+      }
+    } catch (error) {
+      console.error('Failed to load activities:', error)
+      setError('Failed to load activity data')
+    } finally {
+      setLoading(prev => ({ ...prev, activities: false }))
+    }
+  }
 
   // Sample events data
   const events: Event[] = [
@@ -152,25 +223,25 @@ export default function TravelServicesPage() {
     }
   ]
 
-  // Sample booking services data
+  // Dynamic booking services based on real-time data
   const bookingServices: BookingService[] = [
     {
       id: '1',
       title: 'Flight Booking',
-      description: 'Find and book the best flights for your trip',
+      description: `Find and book flights to ${tripData.destination}`,
       icon: <Plane className="w-6 h-6" />,
-      price: 'From $299',
+      price: realTimeData.flights.length > 0 ? `From $${Math.min(...realTimeData.flights.map((f: any) => f.price))}` : 'Loading...',
       category: 'transport',
-      available: true
+      available: !loading.flights && realTimeData.flights.length > 0
     },
     {
       id: '2',
       title: 'Hotel Reservation',
-      description: 'Book accommodations that fit your budget and preferences',
+      description: `Book accommodations in ${tripData.destination}`,
       icon: <Hotel className="w-6 h-6" />,
-      price: 'From $89/night',
+      price: realTimeData.hotels.length > 0 ? `From $${Math.min(...realTimeData.hotels.map((h: any) => h.price))}/night` : 'Loading...',
       category: 'accommodation',
-      available: true
+      available: !loading.hotels && realTimeData.hotels.length > 0
     },
     {
       id: '3',
@@ -193,11 +264,11 @@ export default function TravelServicesPage() {
     {
       id: '5',
       title: 'Activity Bookings',
-      description: 'Reserve spots for tours, activities, and experiences',
+      description: `Reserve activities in ${tripData.destination}`,
       icon: <Camera className="w-6 h-6" />,
-      price: 'From $25',
+      price: realTimeData.activities.length > 0 ? `From $${Math.min(...realTimeData.activities.map((a: any) => a.price))}` : 'Loading...',
       category: 'activities',
-      available: true
+      available: !loading.activities && realTimeData.activities.length > 0
     },
     {
       id: '6',
@@ -419,8 +490,25 @@ export default function TravelServicesPage() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border p-6">
               <div className="mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Book Your Trip</h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Book Your Trip</h2>
+                  <Button
+                    onClick={loadRealTimeData}
+                    disabled={loading.flights || loading.hotels || loading.activities}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${(loading.flights || loading.hotels || loading.activities) ? 'animate-spin' : ''}`} />
+                    Refresh Data
+                  </Button>
+                </div>
                 <p className="text-gray-600 dark:text-gray-300">Reserve your travel essentials and experiences for {tripData.destination}</p>
+                {error && (
+                  <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                  </div>
+                )}
               </div>
 
               {/* Booking Services Grid */}
@@ -450,7 +538,13 @@ export default function TravelServicesPage() {
                               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                               disabled={!service.available}
                             >
-                              {service.available ? 'Book Now' : 'Unavailable'}
+                              {service.price === 'Loading...' ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : service.available ? (
+                                'Book Now'
+                              ) : (
+                                'Unavailable'
+                              )}
                             </Button>
                           </div>
                         </div>

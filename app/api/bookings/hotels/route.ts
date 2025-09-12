@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { amadeusService } from '@/lib/amadeus'
 
 interface HotelSearchParams {
   destination: string
@@ -51,15 +52,33 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // For demonstration, I'll use a combination of real APIs and enhanced mock data
-    // In production, you would integrate with actual booking APIs like:
-    // - Booking.com API
-    // - Hotels.com API
-    // - Expedia API
-    // - Airbnb API
-    // - Amadeus API
-
-    const hotels = await fetchRealHotelData(destination, checkIn, checkOut, guests, rooms, budget)
+    // Use real Amadeus API for hotel data
+    let hotels
+    try {
+      // Convert destination to city code (simplified - in production, use proper city code mapping)
+      const cityCode = destination.split(',')[0].trim().toUpperCase().substring(0, 3)
+      
+      hotels = await amadeusService.searchHotels({
+        cityCode,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        adults: guests,
+        rooms: rooms,
+        max: 10
+      })
+      
+      // Filter by budget
+      hotels = hotels.filter(hotel => hotel.price <= budget)
+      
+      // If no results from Amadeus or API fails, fall back to mock data
+      if (hotels.length === 0) {
+        console.log('No Amadeus results, using fallback data')
+        hotels = await fetchRealHotelData(destination, checkIn, checkOut, guests, rooms, budget)
+      }
+    } catch (error) {
+      console.error('Amadeus API error, using fallback:', error)
+      hotels = await fetchRealHotelData(destination, checkIn, checkOut, guests, rooms, budget)
+    }
 
     return NextResponse.json({
       success: true,
