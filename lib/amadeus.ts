@@ -188,7 +188,7 @@ class AmadeusService {
         }
       })
 
-      this.token = response.data
+      this.token = response.data as AmadeusToken
       this.tokenExpiry = Date.now() + (this.token.expires_in * 1000) - 60000 // 1 minute buffer
       
       return this.token.access_token
