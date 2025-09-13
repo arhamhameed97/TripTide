@@ -191,6 +191,13 @@ export default function ResultsPage() {
               }
             }
 
+            // Day-level transport cost if provided
+            if (day.transport?.cost) {
+              const dayTransport = parseEstimatedCost(day.transport.cost)
+              transportCost += dayTransport
+              totalEstimatedCost += dayTransport
+            }
+
             // Process hourly activities
             day.hourlyActivities?.forEach((activity: any) => {
               const cost = parseEstimatedCost(activity.estimatedCost)
@@ -240,13 +247,18 @@ export default function ResultsPage() {
             })
           })
 
+          // Reconcile misc
+          const categorizedSum = accommodationCost + foodCost + activityCost + transportCost + shoppingCost
+          const miscCost = Math.max(0, totalEstimatedCost - categorizedSum)
+
           return {
             totalEstimatedCost,
             accommodationCost,
             foodCost,
             activityCost,
             transportCost,
-            shoppingCost
+            shoppingCost,
+            miscCost
           }
         }
 

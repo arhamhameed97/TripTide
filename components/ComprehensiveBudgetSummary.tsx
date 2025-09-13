@@ -119,6 +119,13 @@ export default function ComprehensiveBudgetSummary({
         }
       }
 
+      // Day-level transport cost if provided (e.g., taxis/metro pass)
+      if ((day as any).transport?.cost) {
+        const dayTransport = parseEstimatedCost((day as any).transport.cost)
+        transportCost += dayTransport
+        totalEstimatedCost += dayTransport
+      }
+
       // Process hourly activities
       day.hourlyActivities.forEach((activity) => {
         const cost = parseEstimatedCost(activity.estimatedCost)
@@ -177,25 +184,40 @@ export default function ComprehensiveBudgetSummary({
       })
     })
 
+    // Reconcile any uncategorized remainder into Miscellaneous
+    const categorizedSum = accommodationCost + foodCost + activityCost + transportCost + shoppingCost
+    const miscCost = Math.max(0, totalEstimatedCost - categorizedSum)
+
     return {
       totalEstimatedCost,
       accommodationCost,
       foodCost,
       activityCost,
       transportCost,
-      shoppingCost
+      shoppingCost,
+      miscCost
     }
   }
 
   // Use unified budget data if available, otherwise calculate from itinerary
-  const actualCosts = unifiedBudgetData ? {
-    totalEstimatedCost: unifiedBudgetData.totalActualCost,
-    accommodationCost: unifiedBudgetData.accommodationCost,
-    foodCost: unifiedBudgetData.foodCost,
-    activityCost: unifiedBudgetData.activityCost,
-    transportCost: unifiedBudgetData.transportCost,
-    shoppingCost: unifiedBudgetData.shoppingCost
-  } : calculateActualCosts()
+  const actualCosts = unifiedBudgetData ? (() => {
+    const total = unifiedBudgetData.totalActualCost
+    const acc = unifiedBudgetData.accommodationCost
+    const food = unifiedBudgetData.foodCost
+    const act = unifiedBudgetData.activityCost
+    const trans = unifiedBudgetData.transportCost
+    const shop = unifiedBudgetData.shoppingCost
+    const misc = Math.max(0, total - (acc + food + act + trans + shop))
+    return {
+      totalEstimatedCost: total,
+      accommodationCost: acc,
+      foodCost: food,
+      activityCost: act,
+      transportCost: trans,
+      shoppingCost: shop,
+      miscCost: misc
+    }
+  })() : calculateActualCosts()
 
   // Initialize budget breakdown with actual costs from AI itinerary
   const [budgetBreakdown, setBudgetBreakdown] = useState<BudgetBreakdown>({
@@ -204,7 +226,7 @@ export default function ComprehensiveBudgetSummary({
     activities: Math.round(actualCosts.activityCost),
     transport: Math.round(actualCosts.transportCost),
     shopping: Math.round(actualCosts.shoppingCost),
-    misc: 0
+    misc: Math.round((actualCosts as any).miscCost || 0)
   })
   const [tempBreakdown, setTempBreakdown] = useState<BudgetBreakdown>({ ...budgetBreakdown })
   const [showResetWarning, setShowResetWarning] = useState(false)
@@ -221,6 +243,10 @@ export default function ComprehensiveBudgetSummary({
   // Use unified budget utilization if available
   const actualRemainingBudget = totalBudget - actualCosts.totalEstimatedCost
   const actualBudgetUtilization = unifiedBudgetData ? unifiedBudgetData.totalBudgetUtilization : (actualCosts.totalEstimatedCost / totalBudget) * 100
+
+  // Preview values while editing (so user sees real-time effects)
+  const previewUtilization = budgetUtilization
+  const previewRemaining = remainingBudget
 
   // Get recommended budget percentages
   const getRecommendedPercentages = () => {
@@ -268,15 +294,15 @@ export default function ComprehensiveBudgetSummary({
     }).format(amount)
   }
 
-  const getBudgetStatusColor = () => {
-    if (actualBudgetUtilization <= 80) return 'text-green-600'
-    if (actualBudgetUtilization <= 100) return 'text-yellow-600'
+  const getBudgetStatusColor = (utilization: number) => {
+    if (utilization <= 80) return 'text-green-600'
+    if (utilization <= 100) return 'text-yellow-600'
     return 'text-red-600'
   }
 
-  const getBudgetStatusIcon = () => {
-    if (actualBudgetUtilization <= 80) return <CheckCircle className="w-5 h-5 text-green-600" />
-    if (actualBudgetUtilization <= 100) return <AlertTriangle className="w-5 h-5 text-yellow-600" />
+  const getBudgetStatusIcon = (utilization: number) => {
+    if (utilization <= 80) return <CheckCircle className="w-5 h-5 text-green-600" />
+    if (utilization <= 100) return <AlertTriangle className="w-5 h-5 text-yellow-600" />
     return <XCircle className="w-5 h-5 text-red-600" />
   }
 
@@ -288,6 +314,24 @@ export default function ComprehensiveBudgetSummary({
     } else {
       return "Your budget allows for premium experiences and luxury accommodations."
     }
+  }
+
+  // UI helper: utilization progress bar relative to planned
+  const renderUtilizationBar = (actual: number, planned: number) => {
+    const ratio = planned > 0 ? Math.max(0, Math.min(1.2, actual / planned)) : 0
+    const percent = planned > 0 ? Math.round((actual / planned) * 100) : 0
+    const color = percent <= 100 ? 'bg-green-500' : percent <= 110 ? 'bg-yellow-500' : 'bg-red-500'
+    return (
+      <div className="flex items-center gap-2 w-40">
+        <div className="relative h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+          <div
+            className={`h-full ${color} transition-all duration-300 ease-out`}
+            style={{ width: `${Math.min(100, ratio * 100)}%` }}
+          />
+        </div>
+        <span className="text-xs text-gray-600 w-10 text-right">{percent}%</span>
+      </div>
+    )
   }
 
   return (
@@ -359,26 +403,26 @@ export default function ComprehensiveBudgetSummary({
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2 mb-2">
             <Calculator className="w-5 h-5 text-purple-600" />
-            <span className="font-medium text-gray-700">Actual Spent</span>
+            <span className="font-medium text-gray-700">{isEditing ? 'Planned Allocation' : 'Actual Spent'}</span>
           </div>
-          <div className={`text-2xl font-bold ${getBudgetStatusColor()}`}>
-            {formatCurrency(actualCosts.totalEstimatedCost)}
+          <div className={`text-2xl font-bold ${getBudgetStatusColor(isEditing ? previewUtilization : actualBudgetUtilization)}`}>
+            {isEditing ? formatCurrency(totalAllocated) : formatCurrency(actualCosts.totalEstimatedCost)}
           </div>
           <div className="text-sm text-gray-500">
-            {actualBudgetUtilization.toFixed(1)}% of budget
+            {(isEditing ? previewUtilization : actualBudgetUtilization).toFixed(1)}% of budget
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2 mb-2">
-            {getBudgetStatusIcon()}
+            {getBudgetStatusIcon(isEditing ? previewUtilization : actualBudgetUtilization)}
             <span className="font-medium text-gray-700">Status</span>
           </div>
-          <div className={`text-lg font-bold ${getBudgetStatusColor()}`}>
-            {actualBudgetUtilization <= 100 ? 'Within Budget' : 'Over Budget'}
+          <div className={`text-lg font-bold ${getBudgetStatusColor(isEditing ? previewUtilization : actualBudgetUtilization)}`}>
+            {(isEditing ? previewUtilization : actualBudgetUtilization) <= 100 ? 'Within Budget' : 'Over Budget'}
           </div>
           <div className="text-sm text-gray-500">
-            {actualRemainingBudget >= 0 ? 'Good' : 'Over budget'}
+            {(isEditing ? previewRemaining : actualRemainingBudget) >= 0 ? 'Good' : 'Over budget'}
           </div>
         </div>
       </div>
@@ -415,22 +459,23 @@ export default function ComprehensiveBudgetSummary({
             </thead>
             <tbody>
               {[
-                { key: 'accommodation', label: 'Accommodation', icon: '🏨', color: 'text-green-600', bgColor: 'bg-green-50' },
-                { key: 'food', label: 'Food & Dining', icon: '🍽️', color: 'text-blue-600', bgColor: 'bg-blue-50' },
-                { key: 'activities', label: 'Activities', icon: '🎯', color: 'text-purple-600', bgColor: 'bg-purple-50' },
-                { key: 'transport', label: 'Transport', icon: '🚗', color: 'text-orange-600', bgColor: 'bg-orange-50' },
-                { key: 'shopping', label: 'Shopping', icon: '🛍️', color: 'text-red-600', bgColor: 'bg-red-50' },
-                { key: 'misc', label: 'Miscellaneous', icon: '📦', color: 'text-gray-600', bgColor: 'bg-gray-50' }
+                { key: 'accommodation', actualKey: 'accommodationCost', label: 'Accommodation', icon: '🏨', color: 'text-green-600', bgColor: 'bg-green-50' },
+                { key: 'food', actualKey: 'foodCost', label: 'Food & Dining', icon: '🍽️', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+                { key: 'activities', actualKey: 'activityCost', label: 'Activities', icon: '🎯', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+                { key: 'transport', actualKey: 'transportCost', label: 'Transport', icon: '🚗', color: 'text-orange-600', bgColor: 'bg-orange-50' },
+                { key: 'shopping', actualKey: 'shoppingCost', label: 'Shopping', icon: '🛍️', color: 'text-red-600', bgColor: 'bg-red-50' },
+                { key: 'misc', actualKey: 'miscCost', label: 'Miscellaneous', icon: '📦', color: 'text-gray-600', bgColor: 'bg-gray-50' }
               ].map((category) => {
                 const plannedAmount = tempBreakdown[category.key as keyof BudgetBreakdown]
                 const dailyPlanned = Math.round(plannedAmount / days)
-                const actualAmount = actualCosts[`${category.key}Cost` as keyof typeof actualCosts] || 0
+                const actualAmount = (actualCosts as any)[category.actualKey] || 0
                 const difference = actualAmount - plannedAmount
                 
                 // Calculate category status based on overall budget context
                 const categoryUtilization = plannedAmount > 0 ? (actualAmount / plannedAmount) * 100 : 0
                 const isOverBudget = categoryUtilization > 100 && actualBudgetUtilization > 100
                 const isUnderBudget = categoryUtilization <= 100 || actualBudgetUtilization <= 100
+                const utilizationRatio = plannedAmount > 0 ? Math.min(1, Math.max(0, actualAmount / plannedAmount)) : 0
 
                 return (
                   <tr key={category.key} className="border-b border-gray-100 hover:bg-gray-50">
@@ -451,7 +496,10 @@ export default function ComprehensiveBudgetSummary({
                       <div className="text-xs text-gray-500">per day</div>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="font-semibold text-gray-900">{formatCurrency(actualAmount)}</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="font-semibold text-gray-900">{formatCurrency(actualAmount)}</span>
+                        {renderUtilizationBar(actualAmount, plannedAmount)}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className={`font-semibold ${isUnderBudget ? 'text-green-600' : 'text-red-600'}`}>
@@ -486,6 +534,11 @@ export default function ComprehensiveBudgetSummary({
 
         {/* Budget Summary Row */}
         <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Overall progress */}
+          <div className="flex items-center justify-center mb-4">
+            <div className="text-sm font-medium text-gray-700 mr-3">Overall Utilization</div>
+            {renderUtilizationBar(actualCosts.totalEstimatedCost, totalAllocated || 1)}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
               <div className="text-sm font-medium text-gray-700">Total Planned</div>
@@ -495,21 +548,15 @@ export default function ComprehensiveBudgetSummary({
             </div>
             <div>
               <div className="text-sm font-medium text-gray-700">Total Actual</div>
-              <div className={`text-lg font-bold ${getBudgetStatusColor()}`}>
-                {formatCurrency(actualCosts.totalEstimatedCost)}
-              </div>
+              <div className={`text-lg font-bold ${getBudgetStatusColor(actualBudgetUtilization)}`}>{formatCurrency(actualCosts.totalEstimatedCost)}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-gray-700">Remaining</div>
-              <div className={`text-lg font-bold ${actualRemainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(Math.abs(actualRemainingBudget))}
-              </div>
+              <div className={`text-lg font-bold ${ (isEditing ? previewRemaining : actualRemainingBudget) >= 0 ? 'text-green-600' : 'text-red-600' }`}>{formatCurrency(Math.abs(isEditing ? previewRemaining : actualRemainingBudget))}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-gray-700">Utilization</div>
-              <div className={`text-lg font-bold ${getBudgetStatusColor()}`}>
-                {actualBudgetUtilization.toFixed(1)}%
-              </div>
+              <div className={`text-lg font-bold ${getBudgetStatusColor(isEditing ? previewUtilization : actualBudgetUtilization)}`}>{(isEditing ? previewUtilization : actualBudgetUtilization).toFixed(1)}%</div>
             </div>
           </div>
         </div>
