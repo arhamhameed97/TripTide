@@ -84,51 +84,95 @@ export default function ComprehensiveBudgetSummary({
     let transportCost = 0
     let shoppingCost = 0
 
+    // Helper: robust cost parser (handles ranges, currencies, and "free")
+    const parseEstimatedCost = (value?: string) => {
+      if (!value) return 0
+      const lower = value.toLowerCase()
+      if (lower.includes('free')) return 0
+      const numbers = (value.match(/[0-9]+(?:\.[0-9]+)?/g) || []).map(n => parseFloat(n))
+      if (numbers.length === 0) return 0
+      if (numbers.length === 1) return numbers[0]
+      // If a range is provided like "$20-30", take the average
+      const avg = numbers.reduce((a, b) => a + b, 0) / numbers.length
+      return avg
+    }
+
+    // Track unique flights to avoid double counting if present multiple days
+    const countedFlights = new Set<string>()
+
     itinerary.forEach((day) => {
-      // Add hotel cost if available (only count once per unique hotel for total stay)
-      if (day.hotel?.price && day.day === 1) {
-        const hotelPrice = parseFloat(day.hotel.price.replace(/[^0-9.]/g, '')) || 0
-        accommodationCost += hotelPrice * days // Total for entire stay
-        totalEstimatedCost += hotelPrice * days
+      // Accommodation: if a hotel price is present for the day, treat it as nightly cost
+      if (day.hotel?.price) {
+        const nightly = parseEstimatedCost(day.hotel.price)
+        accommodationCost += nightly
+        totalEstimatedCost += nightly
       }
 
-      // Add flight cost if available (only for first day)
-      if (day.day === 1 && day.flight?.price) {
-        const flightPrice = parseFloat(day.flight.price.replace(/[^0-9.]/g, '')) || 0
-        transportCost += flightPrice
-        totalEstimatedCost += flightPrice
+      // Flights: add any flight price once (in case itinerary repeats it)
+      if (day.flight?.price) {
+        const flightKey = `${day.flight.airline}_${day.flight.price}`
+        if (!countedFlights.has(flightKey)) {
+          countedFlights.add(flightKey)
+          const flightCost = parseEstimatedCost(day.flight.price)
+          transportCost += flightCost
+          totalEstimatedCost += flightCost
+        }
       }
 
       // Process hourly activities
       day.hourlyActivities.forEach((activity) => {
-        const cost = parseFloat(activity.estimatedCost.replace(/[^0-9.]/g, '')) || 0
-        
-        // Categorize activities based on keywords
+        const cost = parseEstimatedCost(activity.estimatedCost)
+
+        // Prefer explicit category fields if present on activity
+        const explicitCategory = (activity as any).category || (activity as any).budgetCategory
+        if (explicitCategory) {
+          const key = String(explicitCategory).toLowerCase()
+          if (key.includes('accommod')) accommodationCost += cost
+          else if (key.includes('food') || key.includes('dining') || key.includes('meal')) foodCost += cost
+          else if (key.includes('transport') || key.includes('taxi') || key.includes('uber') || key.includes('train') || key.includes('bus') || key.includes('flight')) transportCost += cost
+          else if (key.includes('shop')) shoppingCost += cost
+          else activityCost += cost
+          totalEstimatedCost += cost
+          return
+        }
+
+        // Keyword-based categorization
         const activityLower = activity.activity.toLowerCase()
         const locationLower = activity.location.toLowerCase()
-        
-        if (activityLower.includes('breakfast') || activityLower.includes('lunch') || 
-            activityLower.includes('dinner') || activityLower.includes('restaurant') ||
-            activityLower.includes('cafe') || activityLower.includes('food') ||
-            locationLower.includes('restaurant') || locationLower.includes('cafe')) {
+
+        if (activityLower.includes('hotel') || activityLower.includes('accommodation') ||
+            locationLower.includes('hotel') || locationLower.includes('resort') ||
+            locationLower.includes('bnb')) {
+          accommodationCost += cost
+        } else if (
+          activityLower.includes('breakfast') || activityLower.includes('lunch') || activityLower.includes('dinner') ||
+          activityLower.includes('restaurant') || activityLower.includes('cafe') || activityLower.includes('food') ||
+          locationLower.includes('restaurant') || locationLower.includes('cafe')
+        ) {
           foodCost += cost
-        } else if (activityLower.includes('museum') || activityLower.includes('visit') ||
-                   activityLower.includes('explore') || activityLower.includes('tour') ||
-                   activityLower.includes('park') || activityLower.includes('beach') ||
-                   activityLower.includes('hike') || activityLower.includes('walk')) {
-          activityCost += cost
-        } else if (activityLower.includes('shopping') || activityLower.includes('market') ||
-                   activityLower.includes('store') || activityLower.includes('mall')) {
-          shoppingCost += cost
-        } else if (activityLower.includes('metro') || activityLower.includes('bus') ||
-                   activityLower.includes('taxi') || activityLower.includes('train') ||
-                   activityLower.includes('transport')) {
+        } else if (
+          activityLower.includes('uber') || activityLower.includes('lyft') || activityLower.includes('taxi') ||
+          activityLower.includes('metro') || activityLower.includes('subway') || activityLower.includes('bus') ||
+          activityLower.includes('tram') || activityLower.includes('train') || activityLower.includes('ferry') ||
+          activityLower.includes('transport') || activityLower.includes('flight')
+        ) {
           transportCost += cost
+        } else if (
+          activityLower.includes('shopping') || activityLower.includes('market') || activityLower.includes('mall') ||
+          activityLower.includes('souvenir') || activityLower.includes('gift') || locationLower.includes('mall')
+        ) {
+          shoppingCost += cost
+        } else if (
+          activityLower.includes('museum') || activityLower.includes('visit') || activityLower.includes('explore') ||
+          activityLower.includes('tour') || activityLower.includes('park') || activityLower.includes('beach') ||
+          activityLower.includes('hike') || activityLower.includes('walk')
+        ) {
+          activityCost += cost
         } else {
           // Default to activities if unclear
           activityCost += cost
         }
-        
+
         totalEstimatedCost += cost
       })
     })
